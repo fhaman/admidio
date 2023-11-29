@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * This class handles the most necessary file-system operations
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -18,20 +18,87 @@
  */
 final class FileSystemUtils
 {
-    const CONTENT_TYPE_DIRECTORY = 'directory';
-    const CONTENT_TYPE_FILE      = 'file';
-    const CONTENT_TYPE_LINK      = 'link';
+    public const CONTENT_TYPE_DIRECTORY = 'directory';
+    public const CONTENT_TYPE_FILE      = 'file';
+    public const CONTENT_TYPE_LINK      = 'link';
 
-    const ROOT_ID = 0;
-    const ROOT_FOLDER = '/';
+    public const ROOT_ID = 0;
+    public const ROOT_FOLDER = '/';
 
-    const DEFAULT_MODE_DIRECTORY = 0775;
-    const DEFAULT_MODE_FILE      = 0664;
+    public const DEFAULT_MODE_DIRECTORY = 0775;
+    public const DEFAULT_MODE_FILE      = 0664;
 
     /**
      * @var array<int,string> The allowed directories
      */
     private static $allowedDirectories = array();
+
+    /**
+     * @var array<string,string> Array with file extensions and the best Font Awesome icon that should be used
+     */
+    private static $iconFileExtension = array(
+        'bmp'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/bmp', 'viewable' => true),
+        'gif'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/gif', 'viewable' => true),
+        'jpg'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/jpeg', 'viewable' => true),
+        'jpeg' => array('icon' => 'fa-file-image', 'mime-type' => 'image/jpeg', 'viewable' => true),
+        'png'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/png', 'viewable' => true),
+        'tiff' => array('icon' => 'fa-file-image', 'mime-type' => 'image/tiff', 'viewable' => true),
+        'doc'  => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
+        'docx' => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
+        'dot'  => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
+        'dotx' => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
+        'odt'  => array('icon' => 'fa-file-word', 'mime-type' => 'application/vnd.oasis.opendocument.text', 'viewable' => false),
+        'csv'  => array('icon' => 'fa-file-excel', 'mime-type' => 'text/comma-separated-values', 'viewable' => false),
+        'xls'  => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
+        'xlsx' => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
+        'xlt'  => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
+        'xltx' => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
+        'ods'  => array('icon' => 'fa-file-excel', 'mime-type' => 'application/vnd.oasis.opendocument.spreadsheet', 'viewable' => false),
+        'pps'  => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
+        'ppsx' => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
+        'ppt'  => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
+        'pptx' => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
+        'odp'  => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/vnd.oasis.opendocument.presentation', 'viewable' => false),
+        'css'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/css', 'viewable' => true),
+        'log'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
+        'md'   => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
+        'rtf'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/rtf', 'viewable' => false),
+        'txt'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
+        'pdf'  => array('icon' => 'fa-file-pdf', 'mime-type' => 'application/pdf', 'viewable' => true),
+        'gz'   => array('icon' => 'fa-file-archive', 'mime-type' => 'application/gzip', 'viewable' => false),
+        'tar'  => array('icon' => 'fa-file-archive', 'mime-type' => 'application/x-tar', 'viewable' => false),
+        'zip'  => array('icon' => 'fa-file-archive', 'mime-type' => 'application/zip', 'viewable' => false),
+        'avi'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/x-msvideo', 'viewable' => true),
+        'flv'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/x-flv', 'viewable' => true),
+        'mov'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/quicktime', 'viewable' => true),
+        'mp4'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/mp4', 'viewable' => true),
+        'mpeg' => array('icon' => 'fa-file-video', 'mime-type' => 'video/mpeg', 'viewable' => true),
+        'mpg'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/mpeg', 'viewable' => true),
+        'webm' => array('icon' => 'fa-file-video', 'mime-type' => 'video/webm', 'viewable' => true),
+        'wmv'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/x-ms-wmv', 'viewable' => true),
+        'aac'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/aac', 'viewable' => true),
+        'midi' => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/x-midi', 'viewable' => true),
+        'mp3'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/mpeg3', 'viewable' => true),
+        'wav'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/x-midi', 'viewable' => true),
+        'wma'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/x-ms-wma', 'viewable' => true)
+    );
+
+    /**
+     * Check if the file extension of the current file format is allowed for upload and the
+     * documents and files module.
+     * @param string $filename The name of the file that should be checked.
+     * @return bool Return true if the file extension is allowed to be used within Admidio.
+     */
+    public static function allowedFileExtension(string $filename): bool
+    {
+        $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        if (array_key_exists($fileExtension, self::$iconFileExtension)) {
+            return true;
+        }
+
+        return false;
+    }
 
     /**
      * Checks if file-system is UNIX
@@ -68,19 +135,15 @@ final class FileSystemUtils
         $defaultOptions = array('createDirectoryStructure' => true, 'overwriteContent' => false);
         $options = array_merge($defaultOptions, $options);
 
-        if (!is_dir($oldDirectoryPath))
-        {
+        if (!is_dir($oldDirectoryPath)) {
             throw new \UnexpectedValueException('Source directory "' . $oldDirectoryPath . '" does not exist!');
         }
-        if (!is_readable($oldDirectoryPath))
-        {
+        if (!is_readable($oldDirectoryPath)) {
             throw new \UnexpectedValueException('Source directory "' . $oldDirectoryPath . '" is not readable!');
         }
 
-        if (!is_dir($newDirectoryPath))
-        {
-            if ($options['createDirectoryStructure'])
-            {
+        if (!is_dir($newDirectoryPath)) {
+            if ($options['createDirectoryStructure']) {
                 self::createDirectoryIfNotExists($newDirectoryPath);
 
                 return false;
@@ -88,12 +151,10 @@ final class FileSystemUtils
 
             throw new \UnexpectedValueException('Destination directory "' . $newDirectoryPath . '" does not exist!');
         }
-        if (self::isUnix() && !is_executable($newDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($newDirectoryPath)) {
             throw new \UnexpectedValueException('Destination directory "' . $newDirectoryPath . '" is not executable!');
         }
-        if (!is_writable($newDirectoryPath))
-        {
+        if (!is_writable($newDirectoryPath)) {
             throw new \UnexpectedValueException('Destination directory "' . $newDirectoryPath . '" is not writable!');
         }
 
@@ -101,12 +162,10 @@ final class FileSystemUtils
         $newDirectoryContentTree = self::getDirectoryContent($newDirectoryPath, true, false);
 
         $collision = self::checkDirectoryContentTreeCollisions($oldDirectoryContentTree, $newDirectoryContentTree);
-        if (!$collision)
-        {
+        if (!$collision) {
             return false;
         }
-        if ($options['overwriteContent'])
-        {
+        if ($options['overwriteContent']) {
             return true;
         }
 
@@ -122,25 +181,20 @@ final class FileSystemUtils
      */
     private static function checkDirectoryContentTreeCollisions(array $directoryContentTree1, array $directoryContentTree2, $considerDirectoryCollisions = false)
     {
-        foreach ($directoryContentTree1 as $directoryContentName => $directoryContentType1)
-        {
-            if (array_key_exists($directoryContentName, $directoryContentTree2))
-            {
-                if ($considerDirectoryCollisions)
-                {
+        foreach ($directoryContentTree1 as $directoryContentName => $directoryContentType1) {
+            if (array_key_exists($directoryContentName, $directoryContentTree2)) {
+                if ($considerDirectoryCollisions) {
                     return true;
                 }
 
                 $directoryContentType2 = $directoryContentTree2[$directoryContentName];
 
-                if (!is_array($directoryContentType1) || !is_array($directoryContentType2))
-                {
+                if (!is_array($directoryContentType1) || !is_array($directoryContentType2)) {
                     return true;
                 }
 
                 $collision = self::checkDirectoryContentTreeCollisions($directoryContentType1, $directoryContentType2, $considerDirectoryCollisions);
-                if ($collision)
-                {
+                if ($collision) {
                     return true;
                 }
             }
@@ -168,29 +222,23 @@ final class FileSystemUtils
         self::checkIsInAllowedDirectories($newFilePath);
 
         $oldParentDirectoryPath = dirname($oldFilePath);
-        if (self::isUnix() && !is_executable($oldParentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($oldParentDirectoryPath)) {
             throw new \UnexpectedValueException('Source parent directory "' . $oldParentDirectoryPath . '" is not executable!');
         }
-        if ($mode === 'move' && !is_writable($oldParentDirectoryPath))
-        {
+        if ($mode === 'move' && !is_writable($oldParentDirectoryPath)) {
             throw new \UnexpectedValueException('Source parent directory "' . $oldParentDirectoryPath . '" is not writable!');
         }
 
-        if (!is_file($oldFilePath))
-        {
+        if (!is_file($oldFilePath)) {
             throw new \UnexpectedValueException('Source file "' . $oldFilePath . '" does not exist!');
         }
-        if ($mode === 'copy' && !is_readable($oldFilePath))
-        {
+        if ($mode === 'copy' && !is_readable($oldFilePath)) {
             throw new \UnexpectedValueException('Source file "' . $oldFilePath . '" is not readable!');
         }
 
         $newParentDirectoryPath = dirname($newFilePath);
-        if (!is_dir($newParentDirectoryPath))
-        {
-            if ($options['createDirectoryStructure'])
-            {
+        if (!is_dir($newParentDirectoryPath)) {
+            if ($options['createDirectoryStructure']) {
                 self::createDirectoryIfNotExists($newParentDirectoryPath);
 
                 return false;
@@ -198,21 +246,17 @@ final class FileSystemUtils
 
             throw new \UnexpectedValueException('Destination parent directory "' . $newParentDirectoryPath . '" does not exist!');
         }
-        if (self::isUnix() && !is_executable($newParentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($newParentDirectoryPath)) {
             throw new \UnexpectedValueException('Destination parent directory "' . $newParentDirectoryPath . '" is not executable!');
         }
-        if (!is_writable($newParentDirectoryPath))
-        {
+        if (!is_writable($newParentDirectoryPath)) {
             throw new \UnexpectedValueException('Destination parent directory "' . $newParentDirectoryPath . '" is not writable!');
         }
 
-        if (!is_file($newFilePath))
-        {
+        if (!is_file($newFilePath)) {
             return false;
         }
-        if ($options['overwrite'])
-        {
+        if ($options['overwrite']) {
             return true;
         }
 
@@ -228,15 +272,12 @@ final class FileSystemUtils
     {
         $path = self::getNormalizedPath($path);
 
-        if (count(self::$allowedDirectories) === 0)
-        {
+        if (count(self::$allowedDirectories) === 0) {
             return;
         }
 
-        foreach (self::$allowedDirectories as $allowedDirectory)
-        {
-            if (strpos($path, $allowedDirectory) === 0)
-            {
+        foreach (self::$allowedDirectories as $allowedDirectory) {
+            if (strpos($path, $allowedDirectory) === 0) {
                 return;
             }
         }
@@ -252,13 +293,11 @@ final class FileSystemUtils
     private static function checkParentDirExecAndPathExist($path)
     {
         $parentDirectoryPath = dirname($path);
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
         }
 
-        if (!file_exists($path))
-        {
+        if (!file_exists($path)) {
             throw new \UnexpectedValueException('Path "' . $path . '" does not exist!');
         }
     }
@@ -275,41 +314,32 @@ final class FileSystemUtils
      */
     public static function chmodDirectory($directoryPath, $mode = self::DEFAULT_MODE_DIRECTORY, $recursive = false, $onlyDirectories = true)
     {
-        if (!self::isUnixWithPosix())
-        {
+        if (!self::isUnixWithPosix()) {
             throw new \RuntimeException('"FileSystemUtils::chmodDirectory()" is only available on systems with POSIX support!');
         }
 
         self::checkIsInAllowedDirectories($directoryPath);
 
-        if (!is_dir($directoryPath))
-        {
+        if (!is_dir($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" does not exist!');
         }
 
-        if (!self::hasPathOwnerRight($directoryPath))
-        {
+        if (!self::hasPathOwnerRight($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" owner is different to process owner!');
         }
 
         $chmodResult = chmod($directoryPath, $mode);
-        if (!$chmodResult)
-        {
+        if (!$chmodResult) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" mode cannot be changed!');
         }
 
-        if ($recursive)
-        {
+        if ($recursive) {
             $directoryContent = self::getDirectoryContent($directoryPath);
 
-            foreach ($directoryContent as $entryPath => $type)
-            {
-                if ($type === self::CONTENT_TYPE_DIRECTORY)
-                {
+            foreach ($directoryContent as $entryPath => $type) {
+                if ($type === self::CONTENT_TYPE_DIRECTORY) {
                     self::chmodDirectory($entryPath, $mode, $recursive, $onlyDirectories);
-                }
-                elseif (!$onlyDirectories)
-                {
+                } elseif (!$onlyDirectories) {
                     self::chmodFile($entryPath, $mode);
                 }
             }
@@ -325,31 +355,26 @@ final class FileSystemUtils
      */
     public static function chmodFile($filePath, $mode = self::DEFAULT_MODE_FILE)
     {
-        if (!self::isUnixWithPosix())
-        {
+        if (!self::isUnixWithPosix()) {
             throw new \RuntimeException('"FileSystemUtils::chmodFile()" is only available on systems with POSIX support!');
         }
 
         self::checkIsInAllowedDirectories($filePath);
 
         $parentDirectoryPath = dirname($filePath);
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
         }
 
-        if (!is_file($filePath))
-        {
+        if (!is_file($filePath)) {
             throw new \UnexpectedValueException('File "' . $filePath . '" does not exist!');
         }
-        if (!self::hasPathOwnerRight($filePath))
-        {
+        if (!self::hasPathOwnerRight($filePath)) {
             throw new \UnexpectedValueException('File "' . $filePath . '" owner is different to process owner!');
         }
 
         $chmodResult = chmod($filePath, $mode);
-        if (!$chmodResult)
-        {
+        if (!$chmodResult) {
             throw new \RuntimeException('File "' . $filePath . '" mode cannot be changed!');
         }
     }
@@ -362,8 +387,7 @@ final class FileSystemUtils
      */
     private static function convertPermsToString($perms)
     {
-        switch ($perms & 0xF000)
-        {
+        switch ($perms & 0xF000) {
             case 0xC000: // Socket
                 $info = 's';
                 break;
@@ -446,8 +470,7 @@ final class FileSystemUtils
         $returnValue = self::checkFilePreconditions('copy', $oldFilePath, $newFilePath, $options);
 
         $copyResult = copy($oldFilePath, $newFilePath);
-        if (!$copyResult)
-        {
+        if (!$copyResult) {
             throw new \RuntimeException('File "' . $oldFilePath . '" cannot be copied!');
         }
 
@@ -470,50 +493,39 @@ final class FileSystemUtils
         $defaultOptions = array('mode' => self::DEFAULT_MODE_DIRECTORY, 'modeParents' => self::DEFAULT_MODE_DIRECTORY, 'createDirectoryStructure' => true);
         $options = array_merge($defaultOptions, $options);
 
-        if (is_dir($directoryPath))
-        {
+        if (is_dir($directoryPath)) {
             return false;
         }
 
         $parentDirectoryPath = dirname($directoryPath);
-        if (!is_dir($parentDirectoryPath))
-        {
-            if ($options['createDirectoryStructure'])
-            {
+        if (!is_dir($parentDirectoryPath)) {
+            if ($options['createDirectoryStructure']) {
                 $parentOptions = $options;
                 $parentOptions['mode'] = $options['modeParents'];
                 self::createDirectoryIfNotExists($parentDirectoryPath, $parentOptions);
-            }
-            else
-            {
+            } else {
                 throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" does not exist!');
             }
         }
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
         }
-        if (!is_writable($parentDirectoryPath))
-        {
+        if (!is_writable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not writable!');
         }
 
         $mkdirResult = mkdir($directoryPath, $options['mode']);
-        if (!$mkdirResult)
-        {
+        if (!$mkdirResult) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" cannot be created!');
         }
 
-        if (self::isUnixWithPosix())
-        {
-            if (!self::hasPathOwnerRight($directoryPath))
-            {
+        if (self::isUnixWithPosix()) {
+            if (!self::hasPathOwnerRight($directoryPath)) {
                 throw new \UnexpectedValueException('Directory "' . $directoryPath . '" owner is different to process owner!');
             }
 
             $chmodResult = chmod($directoryPath, $options['mode']);
-            if (!$chmodResult)
-            {
+            if (!$chmodResult) {
                 throw new \RuntimeException('Directory "' . $directoryPath . '" mode cannot be changed!');
             }
         }
@@ -534,46 +546,36 @@ final class FileSystemUtils
     {
         self::checkIsInAllowedDirectories($directoryPath);
 
-        if (!is_dir($directoryPath))
-        {
+        if (!is_dir($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" does not exist!');
         }
 
-        if (self::isDirectoryEmpty($directoryPath))
-        {
+        if (self::isDirectoryEmpty($directoryPath)) {
             return false;
         }
 
-        if (!is_writable($directoryPath))
-        {
+        if (!is_writable($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" is not writable!');
         }
-        if (!is_readable($directoryPath))
-        {
+        if (!is_readable($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" is not readable!');
         }
 
         $dirHandle = opendir($directoryPath);
-        if ($dirHandle === false)
-        {
+        if ($dirHandle === false) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" cannot be opened!');
         }
 
-        while (($entry = readdir($dirHandle)) !== false)
-        {
-            if ($entry === '.' || $entry === '..')
-            {
+        while (($entry = readdir($dirHandle)) !== false) {
+            if ($entry === '.' || $entry === '..') {
                 continue;
             }
 
             $directoryEntry = $directoryPath . DIRECTORY_SEPARATOR . $entry;
 
-            if (is_dir($directoryEntry))
-            {
+            if (is_dir($directoryEntry)) {
                 self::deleteDirectoryIfExists($directoryEntry, true);
-            }
-            else
-            {
+            } else {
                 self::deleteFileIfExists($directoryEntry);
             }
         }
@@ -595,41 +597,32 @@ final class FileSystemUtils
     {
         self::checkIsInAllowedDirectories($directoryPath);
 
-        if ($directoryPath === self::ROOT_FOLDER)
-        {
+        if ($directoryPath === self::ROOT_FOLDER) {
             throw new \UnexpectedValueException('Directory "' . self::ROOT_FOLDER . '" cannot be deleted!');
         }
 
         $parentDirectoryPath = dirname($directoryPath);
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
         }
-        if (!is_dir($directoryPath))
-        {
+        if (!is_dir($directoryPath)) {
             return false;
         }
 
-        if (!self::isDirectoryEmpty($directoryPath))
-        {
-            if ($deleteWithContent)
-            {
+        if (!self::isDirectoryEmpty($directoryPath)) {
+            if ($deleteWithContent) {
                 self::deleteDirectoryContentIfExists($directoryPath);
-            }
-            else
-            {
+            } else {
                 throw new \UnexpectedValueException('Directory "' . $directoryPath . '" is not empty!');
             }
         }
 
-        if (!is_writable($parentDirectoryPath))
-        {
+        if (!is_writable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not writable!');
         }
 
         $rmdirResult = rmdir($directoryPath);
-        if (!$rmdirResult)
-        {
+        if (!$rmdirResult) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" cannot be deleted!');
         }
 
@@ -639,8 +632,8 @@ final class FileSystemUtils
     /**
      * Deletes a file if it exists
      * @param string $filePath The file to delete
-     * @throws \UnexpectedValueException Throws if the file is not writable
-     * @throws \RuntimeException         Throws if the delete process fails
+     * @throws UnexpectedValueException Throws if the file is not writable
+     * @throws RuntimeException         Throws if the delete process fails
      * @return bool Returns true if file was successfully deleted or false if file already did not exist
      * @see https://www.php.net/manual/en/function.unlink.php
      */
@@ -649,24 +642,20 @@ final class FileSystemUtils
         self::checkIsInAllowedDirectories($filePath);
 
         $parentDirectoryPath = dirname($filePath);
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
-            throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
+        if (self::isUnix() && !is_executable($parentDirectoryPath)) {
+            throw new UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
         }
-        if (!is_writable($parentDirectoryPath))
-        {
-            throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not writable!');
+        if (!is_writable($parentDirectoryPath)) {
+            throw new UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not writable!');
         }
 
-        if (!is_file($filePath))
-        {
+        if (!is_file($filePath)) {
             return false;
         }
 
         $unlinkResult = unlink($filePath);
-        if (!$unlinkResult)
-        {
-            throw new \RuntimeException('File "' . $filePath . '" cannot be deleted!');
+        if (!$unlinkResult) {
+            throw new RuntimeException('File "' . $filePath . '" cannot be deleted!');
         }
 
         return true;
@@ -683,22 +672,17 @@ final class FileSystemUtils
     {
         $oldDirectoryContent = self::getDirectoryContent($oldDirectoryPath, false, false);
 
-        foreach ($oldDirectoryContent as $entry => $type)
-        {
+        foreach ($oldDirectoryContent as $entry => $type) {
             $oldEntryPath = $oldDirectoryPath . DIRECTORY_SEPARATOR . $entry;
             $newEntryPath = $newDirectoryPath . DIRECTORY_SEPARATOR . $entry;
 
-            if ($type === self::CONTENT_TYPE_DIRECTORY)
-            {
-                if (!is_dir($newEntryPath))
-                {
+            if ($type === self::CONTENT_TYPE_DIRECTORY) {
+                if (!is_dir($newEntryPath)) {
                     self::createDirectoryIfNotExists($newEntryPath);
                 }
 
                 self::doCopyDirectory($oldEntryPath, $newEntryPath);
-            }
-            else
-            {
+            } else {
                 self::copyFile($oldEntryPath, $newEntryPath, array('overwrite' => true));
             }
         }
@@ -717,21 +701,52 @@ final class FileSystemUtils
     {
         self::checkIsInAllowedDirectories($path);
 
-        $total = disk_total_space($path);
-        if ($total === false)
-        {
+        $total = function_exists('disk_total_space') ? disk_total_space($path) : false;
+        if ($total === false) {
             throw new \RuntimeException('Total disk-space could not be determined!');
         }
 
-        $free = disk_free_space($path);
-        if ($free === false)
-        {
+        $free = function_exists('disk_free_space') ? disk_free_space($path) : false;
+        if ($free === false) {
             throw new \RuntimeException('Free disk-space could not be determined!');
         }
 
         $used = $total - $free;
 
         return array('total' => $total, 'free' => $free, 'used' => $used);
+    }
+
+    /**
+     * Get the relevant Font Awesome icon for the current file
+     * @return string Returns the name of the Font Awesome icon
+     */
+    public static function getFileFontAwesomeIcon($filename)
+    {
+        $iconFile = 'fa-file';
+        $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+
+        if (array_key_exists($fileExtension, self::$iconFileExtension)) {
+            $iconFile = self::$iconFileExtension[$fileExtension]['icon'];
+        }
+
+        return $iconFile;
+    }
+
+    /**
+     * Get the MIME type of the current file e.g. 'image/jpeg'
+     * @return string MIME type of the current file
+     */
+    public static function getFileMimeType($filename)
+    {
+        $mimeType = 'application/octet-stream';
+        $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        if (array_key_exists($fileExtension, self::$iconFileExtension)) {
+            $mimeType = self::$iconFileExtension[$fileExtension]['mime-type'];
+        }
+
+        return $mimeType;
     }
 
     /**
@@ -777,30 +792,22 @@ final class FileSystemUtils
         $segments = explode('/', $path);
 
         $parts = array();
-        foreach ($segments as $segment)
-        {
-            if ($segment === '.')
-            {
+        foreach ($segments as $segment) {
+            if ($segment === '.') {
                 // Actual directory => ignore
                 continue;
             }
 
             $test = array_pop($parts);
-            if ($test === null)
-            {
+            if ($test === null) {
                 // No path added => add first path
                 $parts[] = $segment;
-            }
-            elseif ($segment === '..')
-            {
-                if ($test === '..')
-                {
+            } elseif ($segment === '..') {
+                if ($test === '..') {
                     // Change to grand-parent directory => add two times ".."
                     $parts[] = $test;
                     $parts[] = $segment;
-                }
-                elseif ($test === '')
-                {
+                } elseif ($test === '') {
                     // File-system root => higher as root is not possible/valid => throw Exception
                     throw new \UnexpectedValueException('Path "' . $path . '" is higher than root!');
                 }
@@ -808,9 +815,7 @@ final class FileSystemUtils
 //                {
 //                    // Change to parent directory => ignore
 //                }
-            }
-            else
-            {
+            } else {
                 // New sub-path => add parent path and new path
                 $parts[] = $test;
                 $parts[] = $segment;
@@ -831,15 +836,13 @@ final class FileSystemUtils
     {
         $divider = 1024;
         $units = array('B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'YiB');
-        if ($si)
-        {
+        if ($si) {
             $divider = 1000;
             $units = array('B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'YB');
         }
 
         $iteration = 0;
-        while ($bytes >= $divider)
-        {
+        while ($bytes >= $divider) {
             ++$iteration;
             $bytes /= $divider;
         }
@@ -863,8 +866,7 @@ final class FileSystemUtils
      */
     public static function getProcessOwnerInfo()
     {
-        if (!self::isUnix())
-        {
+        if (!self::isUnix()) {
             throw new \RuntimeException('"FileSystemUtils::getProcessOwnerInfo()" is only available on systems with POSIX support!');
         }
 
@@ -881,8 +883,7 @@ final class FileSystemUtils
      */
     public static function getProcessGroupInfo()
     {
-        if (!self::isUnix())
-        {
+        if (!self::isUnix()) {
             throw new \RuntimeException('"FileSystemUtils::getProcessGroupInfo()" is only available on systems with POSIX support!');
         }
 
@@ -899,8 +900,7 @@ final class FileSystemUtils
      */
     public static function getPathOwnerInfo($path)
     {
-        if (!self::isUnixWithPosix())
-        {
+        if (!self::isUnixWithPosix()) {
             throw new \RuntimeException('"FileSystemUtils::getPathOwnerInfo()" is only available on systems with POSIX support!');
         }
 
@@ -909,8 +909,7 @@ final class FileSystemUtils
         self::checkParentDirExecAndPathExist($path);
 
         $fileOwnerResult = fileowner($path);
-        if ($fileOwnerResult === false)
-        {
+        if ($fileOwnerResult === false) {
             throw new \RuntimeException('File "' . $path . '" owner cannot be determined!');
         }
 
@@ -927,8 +926,7 @@ final class FileSystemUtils
      */
     public static function getPathGroupInfo($path)
     {
-        if (!self::isUnix())
-        {
+        if (!self::isUnix()) {
             throw new \RuntimeException('"FileSystemUtils::getPathGroupInfo()" is only available on systems with POSIX support!');
         }
 
@@ -937,8 +935,7 @@ final class FileSystemUtils
         self::checkParentDirExecAndPathExist($path);
 
         $fileGroupResult = filegroup($path);
-        if ($fileGroupResult === false)
-        {
+        if ($fileGroupResult === false) {
             throw new \RuntimeException('File "' . $path . '" group cannot be determined!');
         }
 
@@ -957,8 +954,7 @@ final class FileSystemUtils
      */
     public static function hasPathOwnerRight($path)
     {
-        if (!self::isUnixWithPosix())
-        {
+        if (!self::isUnixWithPosix()) {
             throw new \RuntimeException('"FileSystemUtils::hasPathOwnerRight()" is only available on systems with POSIX support!');
         }
 
@@ -987,13 +983,11 @@ final class FileSystemUtils
         self::checkParentDirExecAndPathExist($path);
 
         $perms = fileperms($path);
-        if ($perms === false)
-        {
+        if ($perms === false) {
             throw new \RuntimeException('File "' . $path . '" permissions cannot be read!');
         }
 
-        if ($octal)
-        {
+        if ($octal) {
             return substr(sprintf('%o', $perms), -4);
         }
 
@@ -1017,8 +1011,7 @@ final class FileSystemUtils
 
         self::checkParentDirExecAndPathExist($path);
 
-        if (self::isUnixWithPosix())
-        {
+        if (self::isUnixWithPosix()) {
             $ownerInfo = self::getPathOwnerInfo($path);
             $groupInfo = self::getPathGroupInfo($path);
 
@@ -1052,50 +1045,37 @@ final class FileSystemUtils
     {
         self::checkIsInAllowedDirectories($directoryPath);
 
-        if (!is_dir($directoryPath))
-        {
+        if (!is_dir($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" does not exist!');
         }
-        if (!is_readable($directoryPath))
-        {
+        if (!is_readable($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" is not readable!');
         }
 
         $dirHandle = opendir($directoryPath);
-        if ($dirHandle === false)
-        {
+        if ($dirHandle === false) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" cannot be opened!');
         }
 
         $directoryContent = array();
 
-        while (($entry = readdir($dirHandle)) !== false)
-        {
-            if ($entry === '.' || $entry === '..' || strpos($entry, '.') === 0)
-            {
+        while (($entry = readdir($dirHandle)) !== false) {
+            if ($entry === '.' || $entry === '..' || strpos($entry, '.') === 0) {
                 continue;
             }
 
             $directoryEntry = $directoryPath . DIRECTORY_SEPARATOR . $entry;
             $entryValue = $fullPath ? $directoryEntry : (string) $entry;
 
-            if (is_dir($directoryEntry))
-            {
-                if ($recursive)
-                {
+            if (is_dir($directoryEntry)) {
+                if ($recursive) {
                     $directoryContent[$entryValue] = self::getDirectoryContent($directoryEntry, $recursive, $fullPath, $includedContentTypes);
-                }
-                elseif (in_array(self::CONTENT_TYPE_DIRECTORY, $includedContentTypes, true))
-                {
+                } elseif (in_array(self::CONTENT_TYPE_DIRECTORY, $includedContentTypes, true)) {
                     $directoryContent[$entryValue] = self::CONTENT_TYPE_DIRECTORY;
                 }
-            }
-            elseif (is_file($directoryEntry) && in_array(self::CONTENT_TYPE_FILE, $includedContentTypes, true))
-            {
+            } elseif (is_file($directoryEntry) && in_array(self::CONTENT_TYPE_FILE, $includedContentTypes, true)) {
                 $directoryContent[$entryValue] = self::CONTENT_TYPE_FILE;
-            }
-            elseif (is_link($directoryEntry) && in_array(self::CONTENT_TYPE_LINK, $includedContentTypes, true))
-            {
+            } elseif (is_link($directoryEntry) && in_array(self::CONTENT_TYPE_LINK, $includedContentTypes, true)) {
                 $directoryContent[$entryValue] = self::CONTENT_TYPE_LINK;
             }
         }
@@ -1117,25 +1097,20 @@ final class FileSystemUtils
     {
         self::checkIsInAllowedDirectories($directoryPath);
 
-        if (!is_dir($directoryPath))
-        {
+        if (!is_dir($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" does not exist!');
         }
-        if (!is_readable($directoryPath))
-        {
+        if (!is_readable($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" is not readable!');
         }
 
         $dirHandle = opendir($directoryPath);
-        if ($dirHandle === false)
-        {
+        if ($dirHandle === false) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" cannot be opened!');
         }
 
-        while (($entry = readdir($dirHandle)) !== false)
-        {
-            if ($entry !== '.' && $entry !== '..')
-            {
+        while (($entry = readdir($dirHandle)) !== false) {
+            if ($entry !== '.' && $entry !== '..') {
                 closedir($dirHandle);
 
                 return false;
@@ -1144,6 +1119,22 @@ final class FileSystemUtils
         closedir($dirHandle);
 
         return true;
+    }
+
+    /**
+     * Check if the current file format could be viewed within a browser.
+     * @return bool Return true if the file could be viewed in the browser otherwise false.
+     */
+    public static function isViewableFileInBrowser($filename)
+    {
+        $returnCode = false;
+        $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        if (array_key_exists($fileExtension, self::$iconFileExtension)) {
+            $returnCode = self::$iconFileExtension[$fileExtension]['viewable'];
+        }
+
+        return $returnCode;
     }
 
     /**
@@ -1181,8 +1172,7 @@ final class FileSystemUtils
         $returnValue = self::checkFilePreconditions('move', $oldFilePath, $newFilePath, $options);
 
         $renameResult = rename($oldFilePath, $newFilePath);
-        if (!$renameResult)
-        {
+        if (!$renameResult) {
             throw new \RuntimeException('File "' . $oldFilePath . '" cannot be moved!');
         }
 
@@ -1190,6 +1180,8 @@ final class FileSystemUtils
     }
 
     /**
+     * Method will read the content of the file that is set through the parameter and return the
+     * file content. It will check if the file exists and if it's readable for the PHP user.
      * @param string $filePath The file to read
      * @throws \UnexpectedValueException Throws if the file does not exist or is not readable
      * @throws \RuntimeException         Throws if the read process fails
@@ -1200,24 +1192,15 @@ final class FileSystemUtils
     {
         self::checkIsInAllowedDirectories($filePath);
 
-        $parentDirectoryPath = dirname($filePath);
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
-            throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
-        }
-
-        if (!is_file($filePath))
-        {
+        if (!is_file($filePath)) {
             throw new \UnexpectedValueException('File "' . $filePath . '" does not exist!');
         }
-        if (!is_readable($filePath))
-        {
+        if (!is_readable($filePath)) {
             throw new \UnexpectedValueException('File "' . $filePath . '" is not readable!');
         }
 
         $data = file_get_contents($filePath);
-        if ($data === false)
-        {
+        if ($data === false) {
             throw new \RuntimeException('File "' . $filePath . '" cannot be read!');
         }
 
@@ -1234,7 +1217,8 @@ final class FileSystemUtils
     {
         // remove NULL value from filename
         $filename = str_replace(chr(0), '', $filename);
-        $filename = preg_replace("/([^\w\s\d\-_~:;<>|\[\]\(\).])/u", '', $filename);
+        //$filename = preg_replace("/([^\w\s\d\-_~:;<>|\[\]\(\).])/u", '', $filename);
+        $filename = preg_replace("/<>:\?\/\*\"'/", '-', $filename);
         // Remove any runs of periods
         $filename = preg_replace("/([\.]{2,})/u", '', $filename);
 
@@ -1248,11 +1232,9 @@ final class FileSystemUtils
      */
     public static function setAllowedDirectories(array $directoryPaths = array())
     {
-        foreach ($directoryPaths as &$directoryPath)
-        {
+        foreach ($directoryPaths as &$directoryPath) {
             $directoryPath = self::getNormalizedPath($directoryPath);
-            if (!is_dir($directoryPath))
-            {
+            if (!is_dir($directoryPath)) {
                 throw new \UnexpectedValueException('Directory "' . $directoryPath . '" does not exist!');
             }
         }
@@ -1276,35 +1258,27 @@ final class FileSystemUtils
         self::checkIsInAllowedDirectories($filePath);
 
         $parentDirectoryPath = dirname($filePath);
-        if (self::isUnix() && !is_executable($parentDirectoryPath))
-        {
+        if (self::isUnix() && !is_executable($parentDirectoryPath)) {
             throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not executable!');
         }
 
-        if (is_file($filePath))
-        {
-            if (!is_writable($filePath))
-            {
+        if (is_file($filePath)) {
+            if (!is_writable($filePath)) {
                 throw new \UnexpectedValueException('File "' . $filePath . '" is not writable!');
             }
-        }
-        else
-        {
-            if (!is_writable($parentDirectoryPath))
-            {
+        } else {
+            if (!is_writable($parentDirectoryPath)) {
                 throw new \UnexpectedValueException('Parent directory "' . $parentDirectoryPath . '" is not writable!');
             }
         }
 
         $flags = 0;
-        if ($append)
-        {
+        if ($append) {
             $flags = FILE_APPEND;
         }
 
         $bytes = file_put_contents($filePath, $data, $flags);
-        if ($bytes === false)
-        {
+        if ($bytes === false) {
             throw new \RuntimeException('File "' . $filePath . '" cannot be written!');
         }
 

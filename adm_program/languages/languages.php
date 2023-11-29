@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Supported languages with their codes to identify the languages
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -19,6 +19,11 @@ $gSupportedLanguages = array(
         'isocode' => 'da',
         'libs'    => 'da'
     ),
+    'bg'    => array(
+        'name'    => 'Bulgarian - Български',
+        'isocode' => 'bg',
+        'libs'    => 'bg'
+    ),
     'nl'    => array(
         'name'    => 'Dutch - Nederlands',
         'isocode' => 'nl',
@@ -28,6 +33,16 @@ $gSupportedLanguages = array(
         'name'    => 'English',
         'isocode' => 'en',
         'libs'    => 'en'
+    ),
+    'et'    => array(
+        'name'    => 'Estonian - Eesti keel',
+        'isocode' => 'et',
+        'libs'    => 'et'
+    ),
+    'fi'    => array(
+        'name'    => 'Finnish - Suomalainen',
+        'isocode' => 'fi',
+        'libs'    => 'fi'
     ),
     'fr'    => array(
         'name'    => 'French - Français',
@@ -49,6 +64,11 @@ $gSupportedLanguages = array(
         'isocode' => 'el',
         'libs'    => 'el'
     ),
+    'hu'    => array(
+        'name'    => 'Hungarian - Magyar',
+        'isocode' => 'hu',
+        'libs'    => 'hu'
+    ),
     'id'    => array(
         'name'    => 'Indonesian - bahasa Indonesia',
         'isocode' => 'id',
@@ -63,6 +83,11 @@ $gSupportedLanguages = array(
         'name'    => 'Norwegian Bokmål - Norsk Bokmål',
         'isocode' => 'nb',
         'libs'    => 'nb'
+    ),
+    'pl'    => array(
+        'name'    => 'Polish - Polski',
+        'isocode' => 'pl',
+        'libs'    => 'pl'
     ),
     'pt'    => array(
         'name'    => 'Portuguese - Português',
@@ -79,14 +104,14 @@ $gSupportedLanguages = array(
         'isocode' => 'es',
         'libs'    => 'es'
     ),
-    'sw'    => array(
-        'name'    => 'Swahili - Kiswahili',
-        'isocode' => 'sw',
-        'libs'    => 'sw'
-    ),
     'sv'    => array(
         'name'    => 'Swedish - Svenska',
         'isocode' => 'sv',
         'libs'    => 'sv'
+    ),
+    'uk'    => array(
+        'name'    => 'Ukrainian - український',
+        'isocode' => 'uk',
+        'libs'    => 'uk'
     )
 );

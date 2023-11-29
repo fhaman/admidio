@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_user_relation_types
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -14,9 +14,9 @@
  */
 class TableUserRelationType extends TableAccess
 {
-    const USER_RELATION_TYPE_UNIDIRECTIONAL = 'unidirectional';
-    const USER_RELATION_TYPE_SYMMETRICAL    = 'symmetrical';
-    const USER_RELATION_TYPE_ASYMMETRICAL   = 'asymmetrical';
+    public const USER_RELATION_TYPE_UNIDIRECTIONAL = 'unidirectional';
+    public const USER_RELATION_TYPE_SYMMETRICAL    = 'symmetrical';
+    public const USER_RELATION_TYPE_ASYMMETRICAL   = 'asymmetrical';
 
     /**
      * Constructor that will create an object of a recordset of the table adm_user_relation_types.
@@ -37,8 +37,7 @@ class TableUserRelationType extends TableAccess
     {
         $inverse = new self($this->db, $this->getValue('urt_id_inverse'));
 
-        if ($inverse->isNewRecord())
-        {
+        if ($inverse->isNewRecord()) {
             return null;
         }
 
@@ -51,14 +50,10 @@ class TableUserRelationType extends TableAccess
      */
     public function getRelationTypeString()
     {
-        if (!$this->isNewRecord())
-        {
-            if (empty($this->getValue('urt_id_inverse')))
-            {
+        if (!$this->isNewRecord()) {
+            if (empty($this->getValue('urt_id_inverse'))) {
                 return self::USER_RELATION_TYPE_UNIDIRECTIONAL;
-            }
-            elseif ((int) $this->getValue('urt_id_inverse') === (int) $this->getValue('urt_id'))
-            {
+            } elseif ((int) $this->getValue('urt_id_inverse') === (int) $this->getValue('urt_id')) {
                 return self::USER_RELATION_TYPE_SYMMETRICAL;
             }
         }

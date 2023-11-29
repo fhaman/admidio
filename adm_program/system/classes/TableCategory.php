@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -37,8 +37,8 @@
  */
 class TableCategory extends TableAccess
 {
-    const MOVE_UP   = 'UP';
-    const MOVE_DOWN = 'DOWN';
+    public const MOVE_UP   = 'UP';
+    public const MOVE_DOWN = 'DOWN';
 
     /**
      * @var string
@@ -74,8 +74,7 @@ class TableCategory extends TableAccess
         global $gCurrentSession;
 
         // system-category couldn't be deleted
-        if ((int) $this->getValue('cat_system') === 1)
-        {
+        if ((int) $this->getValue('cat_system') === 1) {
             throw new AdmException('SYS_DELETE_SYSTEM_CATEGORY');
         }
 
@@ -88,8 +87,7 @@ class TableCategory extends TableAccess
         $categoriesStatement = $this->db->queryPrepared($sql, array((int) $gCurrentSession->getValue('ses_org_id'), $this->getValue('cat_type')));
 
         // Don't delete the last category of a type!
-        if ((int) $categoriesStatement->fetchColumn() === 1)
-        {
+        if ((int) $categoriesStatement->fetchColumn() === 1) {
             throw new AdmException('SYS_DELETE_LAST_CATEGORY');
         }
 
@@ -113,8 +111,7 @@ class TableCategory extends TableAccess
                  WHERE '.$this->elementColumn.' = ? -- $catId';
         $recordsetsStatement = $this->db->queryPrepared($sql, array($catId));
 
-        if ($recordsetsStatement->rowCount() > 0)
-        {
+        if ($recordsetsStatement->rowCount() > 0) {
             throw new AdmException('SYS_DONT_DELETE_CATEGORY', array($this->getValue('cat_name'), $this->getNumberElements()));
         }
 
@@ -142,8 +139,7 @@ class TableCategory extends TableAccess
     {
         $newNameIntern = strtoupper(str_replace(' ', '_', $name));
 
-        if ($index > 1)
-        {
+        if ($index > 1) {
             $newNameIntern = $newNameIntern . '_' . $index;
         }
 
@@ -152,8 +148,7 @@ class TableCategory extends TableAccess
                  WHERE cat_name_intern = ? -- $newNameIntern';
         $categoriesStatement = $this->db->queryPrepared($sql, array($newNameIntern));
 
-        if ($categoriesStatement->rowCount() > 0)
-        {
+        if ($categoriesStatement->rowCount() > 0) {
             ++$index;
             $newNameIntern = $this->getNewNameIntern($name, $index);
         }
@@ -188,19 +183,15 @@ class TableCategory extends TableAccess
     {
         global $gL10n;
 
-        if ($columnName === 'cat_name_intern')
-        {
+        if ($columnName === 'cat_name_intern') {
             // internal name should be read with no conversion
             $value = parent::getValue($columnName, 'database');
-        }
-        else
-        {
+        } else {
             $value = parent::getValue($columnName, $format);
         }
 
         // if text is a translation-id then translate it
-        if ($columnName === 'cat_name' && $format !== 'database' && Language::isTranslationStringId($value))
-        {
+        if ($columnName === 'cat_name' && $format !== 'database' && Language::isTranslationStringId($value)) {
             $value = $gL10n->get($value);
         }
 
@@ -220,34 +211,29 @@ class TableCategory extends TableAccess
         $categoryType = $this->getValue('cat_type');
 
         // check the rights in dependence of the category type
-        if(($categoryType === 'ROL' && !$gCurrentUser->manageRoles())
+        if (($categoryType === 'ROL' && !$gCurrentUser->manageRoles())
         || ($categoryType === 'LNK' && !$gCurrentUser->editWeblinksRight())
         || ($categoryType === 'ANN' && !$gCurrentUser->editAnnouncements())
         || ($categoryType === 'USF' && !$gCurrentUser->editUsers())
         || ($categoryType === 'DAT' && !$gCurrentUser->editDates())
-        || ($categoryType === 'AWA' && !$gCurrentUser->editUsers()))
-        {
+        || ($categoryType === 'AWA' && !$gCurrentUser->editUsers())) {
             return false;
         }
 
-        if($this->isVisible())
-        {
+        if ($this->isVisible()) {
             // a new record will always be visible until all data is saved
-            if($this->newRecord)
-            {
+            if ($this->newRecord) {
                 return true;
             }
 
             // if category belongs to current organization than it's editable
-            if($this->getValue('cat_org_id') > 0
-            && (int) $this->getValue('cat_org_id') === (int) $gCurrentOrganization->getValue('org_id'))
-            {
+            if ($this->getValue('cat_org_id') > 0
+            && (int) $this->getValue('cat_org_id') === $GLOBALS['gCurrentOrgId']) {
                 return true;
             }
 
             // if category belongs to all organizations, child organization couldn't edit it
-            if((int) $this->getValue('cat_org_id') === 0 && !$gCurrentOrganization->isChildOrganization())
-            {
+            if ((int) $this->getValue('cat_org_id') === 0 && !$gCurrentOrganization->isChildOrganization()) {
                 return true;
             }
         }
@@ -265,8 +251,7 @@ class TableCategory extends TableAccess
         global $gCurrentUser;
 
         // a new record will always be visible until all data is saved
-        if($this->newRecord)
-        {
+        if ($this->newRecord) {
             return true;
         }
 
@@ -277,11 +262,10 @@ class TableCategory extends TableAccess
     /**
      * Change the internal sequence of this category. It can be moved one place up or down
      * @param string $mode This could be **UP** or **DOWN**.
+     * @return bool Return true if the sequence of the category could be changed, otherwise false.
      */
     public function moveSequence($mode)
     {
-        global $gCurrentOrganization;
-
         $catType = $this->getValue('cat_type');
 
         // count all categories that are organization independent because these categories should not
@@ -300,33 +284,31 @@ class TableCategory extends TableAccess
         $sql = 'UPDATE '.TBL_CATEGORIES.'
                    SET cat_sequence = ? -- $catSequence
                  WHERE cat_type     = ? -- $catType
-                   AND ( cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
+                   AND ( cat_org_id = ? -- $GLOBALS[\'gCurrentOrganization\']->getValue(\'org_id\')
                        OR cat_org_id IS NULL )
                    AND cat_sequence = ? -- $catSequence';
-        $queryParams = array($catSequence, $catType, (int) $gCurrentOrganization->getValue('org_id'));
+        $queryParams = array($catSequence, $catType, (int) $GLOBALS['gCurrentOrganization']->getValue('org_id'));
 
-        // die Kategorie wird um eine Nummer gesenkt und wird somit in der Liste weiter nach oben geschoben
-        if ($mode === self::MOVE_UP)
-        {
-            if ($catOrgId === 0 || $catSequence > $rowCount + 1)
-            {
+        // the category is lowered by one number and is thus moved up in the list
+        if ($mode === self::MOVE_UP) {
+            if ($catOrgId === 0 || $catSequence > $rowCount + 1) {
                 $queryParams[] = $catSequence - 1;
                 $this->db->queryPrepared($sql, $queryParams);
                 $this->setValue('cat_sequence', $catSequence - 1);
             }
         }
-        // die Kategorie wird um eine Nummer erhoeht und wird somit in der Liste weiter nach unten geschoben
-        elseif ($mode === self::MOVE_DOWN)
-        {
-            if ($catOrgId > 0 || $catSequence < $rowCount)
-            {
+        // the category will be increased by one number and thus will be moved further down in the list
+        elseif ($mode === self::MOVE_DOWN) {
+            if ($catOrgId > 0 || $catSequence < $rowCount) {
                 $queryParams[] = $catSequence + 1;
                 $this->db->queryPrepared($sql, $queryParams);
                 $this->setValue('cat_sequence', $catSequence + 1);
             }
+        } else {
+            return false;
         }
 
-        $this->save();
+        return $this->save();
     }
 
     /**
@@ -339,8 +321,7 @@ class TableCategory extends TableAccess
     {
         $returnValue = parent::readDataById($catId);
 
-        if ($returnValue)
-        {
+        if ($returnValue) {
             $this->setTableAndColumnByCatType();
         }
 
@@ -360,8 +341,28 @@ class TableCategory extends TableAccess
     {
         $returnValue = parent::readDataByColumns($columnArray);
 
-        if ($returnValue)
-        {
+        if ($returnValue) {
+            $this->setTableAndColumnByCatType();
+        }
+
+        return $returnValue;
+    }
+
+    /**
+     * Reads a record out of the table in database selected by the unique uuid column in the table.
+     * The name of the column must have the syntax table_prefix, underscore and uuid. E.g. usr_uuid.
+     * Per default all columns of the default table will be read and stored in the object.
+     * Not every Admidio table has a uuid. Please check the database structure before you use this method.
+     * @param int $uuid Unique uuid that should be searched.
+     * @return bool Returns **true** if one record is found
+     * @see TableAccess#readData
+     * @see TableAccess#readDataByColumns
+     */
+    public function readDataByUuid($uuid)
+    {
+        $returnValue = parent::readDataByUuid($uuid);
+
+        if ($returnValue) {
             $this->setTableAndColumnByCatType();
         }
 
@@ -379,23 +380,19 @@ class TableCategory extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentOrganization, $gCurrentSession;
+        global $gCurrentSession;
 
         $fieldsChanged = $this->columnsValueChanged;
 
         $this->db->startTransaction();
 
-        if ($this->newRecord)
-        {
+        if ($this->newRecord) {
             $queryParams = array($this->getValue('cat_type'));
-            if ($this->getValue('cat_org_id') > 0)
-            {
-                $orgCondition = ' AND (   cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
+            if ($this->getValue('cat_org_id') > 0) {
+                $orgCondition = ' AND (   cat_org_id = ? -- $GLOBALS[\'gCurrentOrgId\']
                                        OR cat_org_id IS NULL ) ';
-                $queryParams[] = (int) $gCurrentOrganization->getValue('org_id');
-            }
-            else
-            {
+                $queryParams[] = $GLOBALS['gCurrentOrgId'];
+            } else {
                 $orgCondition = ' AND cat_org_id IS NULL ';
             }
 
@@ -408,8 +405,7 @@ class TableCategory extends TableAccess
 
             $this->setValue('cat_sequence', (int) $countCategoriesStatement->fetchColumn() + 1);
 
-            if ((int) $this->getValue('cat_org_id') === 0)
-            {
+            if ((int) $this->getValue('cat_org_id') === 0) {
                 // eine Orga-uebergreifende Kategorie ist immer am Anfang, also Kategorien anderer Orgas nach hinten schieben
                 $sql = 'UPDATE '.TBL_CATEGORIES.'
                            SET cat_sequence = cat_sequence + 1
@@ -420,18 +416,15 @@ class TableCategory extends TableAccess
         }
 
         // if new category than generate new name intern, otherwise no change will be made
-        if ($this->newRecord && $this->getValue('cat_name_intern') === '')
-        {
+        if ($this->newRecord && $this->getValue('cat_name_intern') === '') {
             $this->setValue('cat_name_intern', $this->getNewNameIntern($this->getValue('cat_name'), 1));
         }
 
         $returnValue = parent::save($updateFingerPrint);
 
-        // Nach dem Speichern noch pruefen, ob Userobjekte neu eingelesen werden muessen,
-        if ($fieldsChanged && $gCurrentSession instanceof Session && $this->getValue('cat_type') === 'USF')
-        {
+        if ($fieldsChanged && $gCurrentSession instanceof Session && $this->getValue('cat_type') === 'USF') {
             // all active users must renew their user data because the user field structure has been changed
-            $gCurrentSession->renewUserObject();
+            $gCurrentSession->reloadAllSessions();
         }
 
         $this->db->endTransaction();
@@ -444,8 +437,7 @@ class TableCategory extends TableAccess
      */
     private function setTableAndColumnByCatType()
     {
-        switch ($this->getValue('cat_type'))
-        {
+        switch ($this->getValue('cat_type')) {
             case 'ROL':
                 $this->elementTable = TBL_ROLES;
                 $this->elementColumn = 'rol_cat_id';
@@ -483,24 +475,25 @@ class TableCategory extends TableAccess
      */
     public function setValue($columnName, $newValue, $checkValue = true)
     {
-        global $gCurrentOrganization;
-
-        if($checkValue)
-        {
-            // Systemkategorien duerfen nicht umbenannt werden
-            if ($columnName === 'cat_name' && (int) $this->getValue('cat_system') === 1)
-            {
+        if ($checkValue) {
+            // System categories should not be renamed
+            if ($columnName === 'cat_name' && (int) $this->getValue('cat_system') === 1) {
                 return false;
-            }
-            elseif ($columnName === 'cat_default' && $newValue == '1')
-            {
-                // es darf immer nur eine Default-Kategorie je Bereich geben
+            } elseif ($columnName === 'cat_default' && $newValue == '1') {
+                // there should only be one default category per organization and category type at a time
                 $sql = 'UPDATE '.TBL_CATEGORIES.'
-                           SET cat_default = 0
+                           SET cat_default = false
                          WHERE cat_type    = ? -- $this->getValue(\'cat_type\')
-                           AND (  cat_org_id IS NOT NULL
-                               OR cat_org_id = ?) -- $gCurrentOrganization->getValue(\'org_id\')';
-                $this->db->queryPrepared($sql, array($this->getValue('cat_type'), (int) $gCurrentOrganization->getValue('org_id')));
+                           AND cat_id     <> ? -- $this->getValue(\'cat_id\')
+                           AND (  cat_org_id IS NULL
+                               OR cat_org_id = ?) -- $GLOBALS[\'gCurrentOrgId\']';
+                $this->db->queryPrepared($sql,
+                    array(
+                        $this->getValue('cat_type'),
+                        $this->getValue('cat_id'),
+                        $GLOBALS['gCurrentOrgId']
+                    )
+                );
             }
         }
 

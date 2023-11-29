@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * RSS feed of announcements
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -27,16 +27,14 @@ require_once(__DIR__ . '/../../system/common.php');
 $getHeadline = admFuncVariableIsValid($_GET, 'headline', 'string', array('defaultValue' => $gL10n->get('SYS_ANNOUNCEMENTS')));
 
 // Nachschauen ob RSS ueberhaupt aktiviert ist...
-if (!$gSettingsManager->getBool('enable_rss'))
-{
+if (!$gSettingsManager->getBool('enable_rss')) {
     $gMessage->setForwardUrl($gHomepage);
     $gMessage->show($gL10n->get('SYS_RSS_DISABLED'));
     // => EXIT
 }
 
 // Nachschauen ob RSS ueberhaupt aktiviert ist bzw. das Modul oeffentlich zugaenglich ist
-if ((int) $gSettingsManager->get('enable_announcements_module') !== 1)
-{
+if ((int) $gSettingsManager->get('enable_announcements_module') !== 1) {
     // das Modul ist deaktiviert
     $gMessage->show($gL10n->get('SYS_MODULE_DISABLED'));
     // => EXIT
@@ -57,13 +55,11 @@ $rss = new RssFeed(
 );
 
 // Wenn Ankündigungen vorhanden laden
-if($announcements->getDataSetCount() > 0)
-{
+if ($announcements->getDataSetCount() > 0) {
     $announcement = new TableAnnouncement($gDb);
     $rows = $announcements->getDataSet(0, 10);
     // Dem RssFeed-Objekt jetzt die RSSitems zusammenstellen und hinzufuegen
-    foreach ($rows['recordset'] as $row)
-    {
+    foreach ($rows['recordset'] as $row) {
         // ausgelesene Ankuendigungsdaten in Announcement-Objekt schieben
         $announcement->clear();
         $announcement->setArray($row);
@@ -72,7 +68,7 @@ if($announcements->getDataSetCount() > 0)
         $rss->addItem(
             $announcement->getValue('ann_headline'),
             $announcement->getValue('ann_description'),
-            SecurityUtils::encodeUrl(ADMIDIO_URL.FOLDER_MODULES.'/announcements/announcements.php', array('id' => (int) $announcement->getValue('ann_id'), 'headline' => $getHeadline)),
+            SecurityUtils::encodeUrl(ADMIDIO_URL.FOLDER_MODULES.'/announcements/announcements.php', array('ann_uuid' => $announcement->getValue('ann_uuid'), 'headline' => $getHeadline)),
             $row['create_name'],
             \DateTime::createFromFormat('Y-m-d H:i:s', $announcement->getValue('ann_timestamp_create', 'Y-m-d H:i:s'))->format('r'),
             $announcement->getValue('cat_name')

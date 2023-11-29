@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -33,7 +33,7 @@
  */
 class LanguageData
 {
-    const REFERENCE_LANGUAGE = 'en'; // The ISO code of the default language that should be read if in the current language the text id is not translated
+    public const REFERENCE_LANGUAGE = 'en'; // The ISO code of the default language that should be read if in the current language the text id is not translated
 
     /**
      * @var string The code of the language that should be read in this object
@@ -59,6 +59,10 @@ class LanguageData
      * @var array<string,string> Stores all read text data in an array to get quick access if a text is required several times
      */
     private $textCache = array();
+    /**
+     * @var bool Set to true if the language folders of the plugins are already loaded.
+     */
+    private $pluginLanguageFoldersLoaded = false;
 
     /**
      * Creates an object that stores all necessary language data and can be handled in session.
@@ -71,8 +75,7 @@ class LanguageData
      */
     public function __construct($language = '', $languageInfos = array())
     {
-        if ($language === '')
-        {
+        if ($language === '') {
             // get browser language and set this language as default
             $language = static::determineBrowserLanguage(self::REFERENCE_LANGUAGE);
         }
@@ -80,42 +83,42 @@ class LanguageData
         $this->setLanguage($language);
         $this->addLanguageFolderPath(ADMIDIO_PATH . FOLDER_LANGUAGES);
 
-        foreach (self::getPluginLanguageFolderPaths() as $pluginLanguageFolderPath)
-        {
-            $this->addLanguageFolderPath($pluginLanguageFolderPath);
-        }
+        $this->addPluginLanguageFolderPaths();
     }
 
     /**
-     * Search and returns all plugin language folder paths
-     * @return array<int,string> Returns all plugin language folder paths
+     * A wakeup add the current database object to this class.
      */
-    private static function getPluginLanguageFolderPaths()
+    public function __wakeup()
     {
-        global $gLogger;
+        $this->pluginLanguageFoldersLoaded = false;
+    }
 
-        try
-        {
-            $pluginFolders = FileSystemUtils::getDirectoryContent(ADMIDIO_PATH . FOLDER_PLUGINS, false, true, array(FileSystemUtils::CONTENT_TYPE_DIRECTORY));
-        }
-        catch (\RuntimeException $exception)
-        {
-            $gLogger->error('L10N: Plugins folder content could not be loaded!', array('errorMessage' => $exception->getMessage()));
+    /**
+     * Read language folder of each plugin in adm_plugins and add this folder to the language folder
+     * array of this class.
+     */
+    public function addPluginLanguageFolderPaths()
+    {
+        if (!$this->pluginLanguageFoldersLoaded) {
+            try {
+                $pluginFolders = FileSystemUtils::getDirectoryContent(ADMIDIO_PATH . FOLDER_PLUGINS, false, true, array(FileSystemUtils::CONTENT_TYPE_DIRECTORY));
+            } catch (\RuntimeException $exception) {
+                $GLOBALS['gLogger']->error('L10N: Plugins folder content could not be loaded!', array('errorMessage' => $exception->getMessage()));
 
-            return array();
-        }
-
-        $languageFolders = array();
-        foreach ($pluginFolders as $pluginFolder => $type)
-        {
-            $languageFolder = $pluginFolder . '/languages';
-            if (is_dir($languageFolder))
-            {
-                $languageFolders[] = $languageFolder;
+                return array();
             }
-        }
 
-        return $languageFolders;
+            foreach ($pluginFolders as $pluginFolder => $type) {
+                $languageFolder = $pluginFolder . '/languages';
+
+                if (is_dir($languageFolder)) {
+                    $this->addLanguageFolderPath($languageFolder);
+                }
+            }
+
+            $this->pluginLanguageFoldersLoaded = true;
+        }
     }
 
     /**
@@ -127,13 +130,11 @@ class LanguageData
      */
     public function addLanguageFolderPath($languageFolderPath)
     {
-        if ($languageFolderPath === '' || !is_dir($languageFolderPath))
-        {
+        if ($languageFolderPath === '' || !is_dir($languageFolderPath)) {
             throw new \UnexpectedValueException('Invalid folder path!');
         }
 
-        if (in_array($languageFolderPath, $this->languageFolderPaths, true))
-        {
+        if (in_array($languageFolderPath, $this->languageFolderPaths, true)) {
             return false;
         }
 
@@ -149,8 +150,7 @@ class LanguageData
      */
     public static function determineBrowserLanguage($defaultLanguage)
     {
-        if (!isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) || empty($_SERVER['HTTP_ACCEPT_LANGUAGE']))
-        {
+        if (!isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) || empty($_SERVER['HTTP_ACCEPT_LANGUAGE'])) {
             return $defaultLanguage;
         }
 
@@ -158,23 +158,19 @@ class LanguageData
         $languageChoosed = $defaultLanguage;
         $priorityChoosed = 0;
 
-        foreach ($languages as $value)
-        {
-            if (!preg_match('/^([a-z]{2,3}(?:-[a-zA-Z]{2,3})?|\*)(?:\s*;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?$/', $value, $matches))
-            {
+        foreach ($languages as $value) {
+            if (!preg_match('/^([a-z]{2,3}(?:-[a-zA-Z]{2,3})?|\*)(?:\s*;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?$/', $value, $matches)) {
                 continue;
             }
 
             $langCodes = explode('-', $matches[1]);
 
             $priority = 1.0;
-            if (isset($matches[2]))
-            {
+            if (isset($matches[2])) {
                 $priority = (float) $matches[2];
             }
 
-            if ($priorityChoosed < $priority && $langCodes[0] !== '*')
-            {
+            if ($priorityChoosed < $priority && $langCodes[0] !== '*') {
                 $languageChoosed = $langCodes[0];
                 $priorityChoosed = $priority;
             }
@@ -236,8 +232,7 @@ class LanguageData
      */
     public function getTextCache($textId)
     {
-        if (!array_key_exists($textId, $this->textCache))
-        {
+        if (!array_key_exists($textId, $this->textCache)) {
             throw new \OutOfBoundsException('Text-id is not cached!');
         }
 
@@ -262,8 +257,7 @@ class LanguageData
     {
         global $gSupportedLanguages;
 
-        if ($language === $this->language)
-        {
+        if ($language === $this->language) {
             return false;
         }
 

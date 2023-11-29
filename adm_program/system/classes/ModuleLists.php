@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -166,9 +166,9 @@
  */
 class ModuleLists extends Modules
 {
-    const ROLE_TYPE_INACTIVE = 0;
-    const ROLE_TYPE_ACTIVE = 1;
-    const ROLE_TYPE_EVENT_PARTICIPATION = 2;
+    public const ROLE_TYPE_INACTIVE = 0;
+    public const ROLE_TYPE_ACTIVE = 1;
+    public const ROLE_TYPE_EVENT_PARTICIPATION = 2;
 
     /**
      * creates an new ModuleLists object
@@ -186,8 +186,7 @@ class ModuleLists extends Modules
      */
     private function getCategorySql()
     {
-        if($this->catId > 0)
-        {
+        if ($this->catId > 0) {
             return ' AND cat_id  = '.$this->catId;
         }
         return '';
@@ -201,15 +200,14 @@ class ModuleLists extends Modules
     {
         $sql = '';
 
-        switch($this->roleType)
-        {
+        switch ($this->roleType) {
             case ROLE_TYPE_INACTIVE:
-                $sql = ' AND rol_valid   = \'0\'
+                $sql = ' AND rol_valid   = false
                          AND cat_name_intern <> \'EVENTS\' ';
                 break;
 
             case ROLE_TYPE_ACTIVE:
-                $sql = ' AND rol_valid   = \'1\'
+                $sql = ' AND rol_valid   = true
                          AND cat_name_intern <> \'EVENTS\' ';
                 break;
 
@@ -229,16 +227,14 @@ class ModuleLists extends Modules
     {
         global $gCurrentUser;
 
-        if($this->roleType == 0 && $gCurrentUser->isAdministrator())
-        {
+        if ($this->roleType == 0 && $gCurrentUser->isAdministrator()) {
             // if inactive roles should be shown, then show all of them to administrator
             return '';
         }
 
         // create a list with all rol_ids that the user is allowed to view
-        $visibleRoles = implode(',', $gCurrentUser->getAllVisibleRoles());
-        if($visibleRoles !== '')
-        {
+        $visibleRoles = implode(',', $gCurrentUser->getRolesViewMemberships());
+        if ($visibleRoles !== '') {
             return ' AND rol_id IN ('.$visibleRoles.')';
         }
 
@@ -253,11 +249,10 @@ class ModuleLists extends Modules
      */
     public function getDataSet($startElement = 0, $limit = null)
     {
-        global $gCurrentOrganization, $gSettingsManager, $gDb;
+        global $gSettingsManager, $gDb;
 
         // Parameter
-        if($limit === null)
-        {
+        if ($limit === null) {
             // Roles per page
             $limit = $gSettingsManager->getInt('groups_roles_roles_per_page');
         }
@@ -273,45 +268,57 @@ class ModuleLists extends Modules
                            AND mem.mem_end     > ? -- DATE_NOW
                            AND (mem.mem_approved IS NULL
                             OR mem.mem_approved < 3)
-                           AND mem.mem_leader = 0), 0) AS num_members,
+                           AND mem.mem_leader = false), 0) AS num_members,
                        COALESCE((SELECT COUNT(*) AS count
                           FROM '.TBL_MEMBERS.' AS mem
                          WHERE mem.mem_rol_id = rol.rol_id
                            AND mem.mem_begin  <= ? -- DATE_NOW
                            AND mem.mem_end     > ? -- DATE_NOW
-                           AND mem.mem_leader = 1), 0) AS num_leader,
+                           AND mem.mem_leader = true), 0) AS num_leader,
                        COALESCE((SELECT COUNT(*) AS count
                           FROM '.TBL_MEMBERS.' AS mem
                          WHERE mem.mem_rol_id = rol.rol_id
-                           AND mem_end < ?), 0) AS num_former -- DATE_NOW
+                           AND mem_end < ?  -- DATE_NOW
+                           AND NOT EXISTS (
+                               SELECT 1
+                                 FROM '.TBL_MEMBERS.' AS act
+                                WHERE act.mem_rol_id = mem.mem_rol_id
+                                  AND act.mem_usr_id = mem.mem_usr_id
+                                  AND ? BETWEEN act.mem_begin AND act.mem_end -- DATE_NOW
+                           )), 0) AS num_former -- DATE_NOW
                   FROM '.TBL_ROLES.' AS rol
             INNER JOIN '.TBL_CATEGORIES.' AS cat
                     ON cat_id = rol_cat_id
              LEFT JOIN '.TBL_DATES.' ON dat_rol_id = rol_id
-                 WHERE (  cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
+                 WHERE (  cat_org_id = ? -- $gCurrentOrgId
                        OR cat_org_id IS NULL )
                        '.$sqlConditions;
 
-        if($this->roleType === ROLE_TYPE_EVENT_PARTICIPATION)
-        {
+        if ($this->roleType === ROLE_TYPE_EVENT_PARTICIPATION) {
             $sql .= ' ORDER BY cat_sequence, dat_begin DESC, rol_name ';
-        }
-        else
-        {
+        } else {
             $sql .= ' ORDER BY cat_sequence, rol_name ';
         }
 
         // If is there a limit then specify one
-        if($limit > 0)
-        {
+        if ($limit > 0) {
             $sql .= ' LIMIT '.$limit;
         }
-        if($startElement > 0)
-        {
+        if ($startElement > 0) {
             $sql .= ' OFFSET '.$startElement;
         }
 
-        $listsStatement = $gDb->queryPrepared($sql, array(DATE_NOW, DATE_NOW, DATE_NOW, DATE_NOW, DATE_NOW, (int) $gCurrentOrganization->getValue('org_id'))); // TODO add more params
+        $listsStatement = $gDb->queryPrepared($sql,
+            array(
+                DATE_NOW,
+                DATE_NOW,
+                DATE_NOW,
+                DATE_NOW,
+                DATE_NOW,
+                DATE_NOW,
+                $GLOBALS['gCurrentOrgId']
+            )
+        ); // TODO add more params
 
         // array for results
         return array(
@@ -329,7 +336,7 @@ class ModuleLists extends Modules
      */
     public function getDataSetCount()
     {
-        global $gCurrentOrganization, $gDb;
+        global $gDb;
 
         // assemble conditions
         $sqlConditions = $this->getCategorySql() . $this->getRoleTypeSql() . $this->getVisibleRolesSql();
@@ -338,10 +345,10 @@ class ModuleLists extends Modules
                   FROM '.TBL_ROLES.' AS rol
             INNER JOIN '.TBL_CATEGORIES.' AS cat
                     ON rol_cat_id = cat_id
-                 WHERE (  cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
+                 WHERE (  cat_org_id = ? -- $GLOBALS[\'gCurrentOrgId\']
                        OR cat_org_id IS NULL )
                        '.$sqlConditions;
-        $pdoStatement = $gDb->queryPrepared($sql, array((int) $gCurrentOrganization->getValue('org_id'))); // TODO add more params
+        $pdoStatement = $gDb->queryPrepared($sql, array($GLOBALS['gCurrentOrgId'])); // TODO add more params
 
         return (int) $pdoStatement->fetchColumn();
     }

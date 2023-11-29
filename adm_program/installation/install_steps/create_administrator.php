@@ -3,18 +3,16 @@
  ***********************************************************************************************
  * Installation step: create_administrator
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
  */
-if (basename($_SERVER['SCRIPT_FILENAME']) === 'create_administrator.php')
-{
+if (basename($_SERVER['SCRIPT_FILENAME']) === 'create_administrator.php') {
     exit('This page may not be called directly!');
 }
 
-if (isset($_POST['orga_shortname']))
-{
+if (isset($_POST['orga_shortname'])) {
     // Zugangsdaten der DB in Sessionvariablen gefiltert speichern
     $_SESSION['orga_shortname'] = StringUtils::strStripTags($_POST['orga_shortname']);
     $_SESSION['orga_longname']  = StringUtils::strStripTags($_POST['orga_longname']);
@@ -24,34 +22,41 @@ if (isset($_POST['orga_shortname']))
     if ($_SESSION['orga_shortname'] === ''
     ||  $_SESSION['orga_longname']  === ''
     ||  $_SESSION['orga_email']     === ''
-    ||  !in_array($_SESSION['orga_timezone'], \DateTimeZone::listIdentifiers(), true))
-    {
+    ||  !in_array($_SESSION['orga_timezone'], \DateTimeZone::listIdentifiers(), true)) {
         $page = new HtmlPageInstallation('admidio-installation-message');
-        $page->showMessage('error', $gL10n->get('SYS_NOTE'), $gL10n->get('INS_ORGANIZATION_NAME_NOT_COMPLETELY'), $gL10n->get('SYS_BACK'),
-            'fa-arrow-circle-left', SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_INSTALLATION . '/installation.php', array('step' => 'create_organization')));
+        $page->showMessage(
+            'error',
+            $gL10n->get('SYS_NOTE'),
+            $gL10n->get('INS_ORGANIZATION_NAME_NOT_COMPLETELY'),
+            $gL10n->get('SYS_BACK'),
+            'fa-arrow-circle-left',
+            SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_INSTALLATION . '/installation.php', array('step' => 'create_organization'))
+        );
         // => EXIT
     }
 
     // allow only letters, numbers and special characters like .-_+@
-    if(!StringUtils::strValidCharacters($_SESSION['orga_shortname'], 'noSpecialChar'))
-    {
+    if (!StringUtils::strValidCharacters($_SESSION['orga_shortname'], 'noSpecialChar')) {
         $page = new HtmlPageInstallation('admidio-installation-message');
-        $page->showMessage('error', $gL10n->get('SYS_NOTE'), $gL10n->get('SYS_FIELD_INVALID_CHAR', array('SYS_NAME_ABBREVIATION')), $gL10n->get('SYS_BACK'),
-            'fa-arrow-circle-left', SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_INSTALLATION . '/installation.php', array('step' => 'create_organization')));
+        $page->showMessage(
+            'error',
+            $gL10n->get('SYS_NOTE'),
+            $gL10n->get('SYS_FIELD_INVALID_CHAR', array('SYS_NAME_ABBREVIATION')),
+            $gL10n->get('SYS_BACK'),
+            'fa-arrow-circle-left',
+            SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_INSTALLATION . '/installation.php', array('step' => 'create_organization'))
+        );
         // => EXIT
     }
 }
 
 // initialize form data
-if (isset($_SESSION['user_last_name']))
-{
+if (isset($_SESSION['user_last_name'])) {
     $userLastName  = $_SESSION['user_last_name'];
     $userFirstName = $_SESSION['user_first_name'];
     $userEmail     = $_SESSION['user_email'];
     $userLogin     = $_SESSION['user_login'];
-}
-else
-{
+} else {
     $userLastName  = '';
     $userFirstName = '';
     $userEmail     = '';
@@ -84,32 +89,45 @@ $page->addJavascript('
 $form = new HtmlForm('installation-form', SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_INSTALLATION . '/installation.php', array('step' => 'create_config')));
 $form->openGroupBox('gbChooseLanguage', $gL10n->get('INS_DATA_OF_ADMINISTRATOR'));
 $form->addInput(
-    'user_last_name', $gL10n->get('SYS_LASTNAME'), $userLastName,
+    'user_last_name',
+    $gL10n->get('SYS_LASTNAME'),
+    $userLastName,
     array('maxLength' => 50, 'property' => HtmlForm::FIELD_REQUIRED)
 );
 $form->addInput(
-    'user_first_name', $gL10n->get('SYS_FIRSTNAME'), $userFirstName,
+    'user_first_name',
+    $gL10n->get('SYS_FIRSTNAME'),
+    $userFirstName,
     array('maxLength' => 50, 'property' => HtmlForm::FIELD_REQUIRED)
 );
 $form->addInput(
-    'user_email', $gL10n->get('SYS_EMAIL'), $userEmail,
+    'user_email',
+    $gL10n->get('SYS_EMAIL'),
+    $userEmail,
     array('type' => 'email', 'maxLength' => 50, 'property' => HtmlForm::FIELD_REQUIRED)
 );
 $form->addInput(
-    'user_login', $gL10n->get('SYS_USERNAME'), $userLogin,
+    'user_login',
+    $gL10n->get('SYS_USERNAME'),
+    $userLogin,
     array('maxLength' => 254, 'property' => HtmlForm::FIELD_REQUIRED)
 );
 $form->addInput(
-    'user_password', $gL10n->get('SYS_PASSWORD'), '',
+    'user_password',
+    $gL10n->get('SYS_PASSWORD'),
+    '',
     array('type' => 'password', 'property' => HtmlForm::FIELD_REQUIRED, 'minLength' => PASSWORD_MIN_LENGTH, 'passwordStrength' => true, 'passwordUserData' => $userData, 'helpTextIdLabel' => 'PRO_PASSWORD_DESCRIPTION')
 );
 $form->addInput(
-    'user_password_confirm', $gL10n->get('SYS_CONFIRM_PASSWORD'), '',
+    'user_password_confirm',
+    $gL10n->get('SYS_CONFIRM_PASSWORD'),
+    '',
     array('type' => 'password', 'property' => HtmlForm::FIELD_REQUIRED, 'minLength' => PASSWORD_MIN_LENGTH)
 );
 $form->closeGroupBox();
 $form->addButton(
-    'previous_page', $gL10n->get('SYS_BACK'),
+    'previous_page',
+    $gL10n->get('SYS_BACK'),
     array('icon' => 'fa-arrow-circle-left', 'class' => 'admidio-margin-bottom',
         'link' => SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_INSTALLATION . '/installation.php', array('step' => 'create_organization')))
 );

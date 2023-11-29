@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Common functions for update and installation
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -19,8 +19,7 @@ function checkDatabaseVersion(Database $database)
     global $gL10n;
 
     // check database version
-    if (version_compare($database->getVersion(), $database->getMinimumRequiredVersion(), '<'))
-    {
+    if (version_compare($database->getVersion(), $database->getMinimumRequiredVersion(), '<')) {
         return $gL10n->get('SYS_DATABASE_VERSION') . ': <strong>' . $database->getVersion() . '</strong><br /><br />' .
                $gL10n->get('INS_WRONG_MYSQL_VERSION', array(ADMIDIO_VERSION_TEXT, $database->getMinimumRequiredVersion(),
                            '<a href="' . ADMIDIO_HOMEPAGE . 'download.php">', '</a>'));
@@ -42,22 +41,17 @@ function querySqlFile(Database $db, $sqlFileName)
     $sqlPath = ADMIDIO_PATH . FOLDER_INSTALLATION . '/db_scripts/';
     $sqlFilePath = $sqlPath . $sqlFileName;
 
-    if (!is_file($sqlFilePath))
-    {
+    if (!is_file($sqlFilePath)) {
         return $gL10n->get('INS_DATABASE_FILE_NOT_FOUND', array($sqlFileName, $sqlPath));
     }
 
-    try
-    {
+    try {
         $sqlStatements = Database::getSqlStatementsFromSqlFile($sqlFilePath);
-    }
-    catch (\RuntimeException $exception)
-    {
+    } catch (\RuntimeException $exception) {
         return $gL10n->get('INS_ERROR_OPEN_FILE', array($sqlFilePath));
     }
 
-    foreach ($sqlStatements as $sqlStatement)
-    {
+    foreach ($sqlStatements as $sqlStatement) {
         $db->queryPrepared($sqlStatement);
     }
 
@@ -69,11 +63,10 @@ function querySqlFile(Database $db, $sqlFileName)
  */
 function disableSoundexSearchIfPgSql(Database $db)
 {
-    if (DB_ENGINE === Database::PDO_ENGINE_PGSQL)
-    {
+    if (DB_ENGINE === Database::PDO_ENGINE_PGSQL) {
         // soundex is not a default function in PostgreSQL
         $sql = 'UPDATE ' . TBL_PREFERENCES . '
-                   SET prf_value = \'0\'
+                   SET prf_value = false
                  WHERE prf_name = \'system_search_similar\'';
         $db->queryPrepared($sql);
     }

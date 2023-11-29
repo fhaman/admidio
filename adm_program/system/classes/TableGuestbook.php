@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_guestbook
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -62,18 +62,12 @@ class TableGuestbook extends TableAccess
      */
     public function getValue($columnName, $format = '')
     {
-        if ($columnName === 'gbo_text')
-        {
-            if (!isset($this->dbColumns['gbo_text']))
-            {
+        if ($columnName === 'gbo_text') {
+            if (!isset($this->dbColumns['gbo_text'])) {
                 $value = '';
-            }
-            elseif ($format === 'database')
-            {
+            } elseif ($format === 'database') {
                 $value = html_entity_decode(StringUtils::strStripTags($this->dbColumns['gbo_text']));
-            }
-            else
-            {
+            } else {
                 $value = $this->dbColumns['gbo_text'];
             }
 
@@ -104,11 +98,8 @@ class TableGuestbook extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentOrganization;
-
-        if ($this->newRecord)
-        {
-            $this->setValue('gbo_org_id', (int) $gCurrentOrganization->getValue('org_id'));
+        if ($this->newRecord) {
+            $this->setValue('gbo_org_id', $GLOBALS['gCurrentOrgId']);
             $this->setValue('gbo_ip_address', $_SERVER['REMOTE_ADDR']);
         }
 
@@ -125,26 +116,18 @@ class TableGuestbook extends TableAccess
      */
     public function setValue($columnName, $newValue, $checkValue = true)
     {
-        if($checkValue)
-        {
-            if ($columnName === 'gbo_text')
-            {
+        if ($checkValue) {
+            if ($columnName === 'gbo_text') {
                 return parent::setValue($columnName, $newValue, false);
-            }
-            elseif ($columnName === 'gbo_email' && $newValue !== '')
-            {
+            } elseif ($columnName === 'gbo_email' && $newValue !== '') {
                 // If Email has a invalid format, it won't be set
-                if (!StringUtils::strValidCharacters($newValue, 'email'))
-                {
+                if (!StringUtils::strValidCharacters($newValue, 'email')) {
                     return false;
                 }
-            }
-            elseif ($columnName === 'gbo_homepage' && $newValue !== '')
-            {
+            } elseif ($columnName === 'gbo_homepage' && $newValue !== '') {
                 $newValue = admFuncCheckUrl($newValue);
 
-                if ($newValue === false)
-                {
+                if ($newValue === false) {
                     return false;
                 }
             }

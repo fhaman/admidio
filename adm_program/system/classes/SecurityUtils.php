@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -11,21 +11,45 @@ final class SecurityUtils
     /**
      * Encodes all HTML special characters
      * If $encodeAll is false, this method is only secure if encoding is not UTF-7
-     * @param string $input     The input string
+     * @param string|array<mixed,string> $input     The input string
      * @param bool   $encodeAll Set true too encode really all HTML special characters
      * @param string $encoding  Define character encoding to use
-     * @return string Encoded string
+     * @return string|array<mixed,string> Encoded string
      */
-    public static function encodeHTML($input, $encodeAll = false, $encoding = 'UTF-8')
+    public static function encodeHTML($input, bool $encodeAll = false, string $encoding = 'UTF-8')
     {
-        if ($encodeAll)
-        {
-            // Encodes: all special HTML characters
-            return htmlentities($input, ENT_QUOTES | ENT_HTML5, $encoding);
+        if (is_array($input)) {
+            // call function for every array element
+            if ($encodeAll) {
+                // Encodes: all special HTML characters
+                function myHtmlentities($value) {
+                    if (is_array($value)) {
+                        return array_map('myHtmlentities', $value);
+                    }
+                    return htmlentities($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                }
+                $input = array_map('myHtmlentities', $input);
+            } else {
+                // Encodes: &, ", ', <, >
+                function myHtmlspecialchars($value) {
+                    if (is_array($value)) {
+                        return array_map('myHtmlspecialchars', $value);
+                    }
+                    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                }
+                $input = array_map('myHtmlspecialchars', $input);
+            }
+        } else {
+            if ($encodeAll) {
+                // Encodes: all special HTML characters
+                $input = htmlentities($input, ENT_QUOTES | ENT_HTML5, $encoding);
+            } else {
+                // Encodes: &, ", ', <, >
+                $input = htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, $encoding);
+            }
         }
 
-        // Encodes: &, ", ', <, >
-        return htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, $encoding);
+        return $input;
     }
 
     /**
@@ -39,21 +63,18 @@ final class SecurityUtils
     public static function encodeUrl($path, array $params = array(), $anchor = '', $encode = false)
     {
         $paramsText = '';
-        if (count($params) > 0)
-        {
+        if (count($params) > 0) {
             $paramsText = '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
         }
 
         $anchorText = '';
-        if ($anchor !== '')
-        {
+        if ($anchor !== '') {
             $anchorText = '#' . rawurlencode($anchor);
         }
 
         $url = $path . $paramsText . $anchorText;
 
-        if ($encode)
-        {
+        if ($encode) {
             return self::encodeHTML($url);
         }
 
@@ -76,8 +97,7 @@ final class SecurityUtils
 
         $gLogger->warning('SECURITY: Could not generate secure pseudo-random number!', array('code' => $exception->getCode(), 'message' => $exception->getMessage()));
 
-        if ($exceptionOnInsecurePRNG)
-        {
+        if ($exceptionOnInsecurePRNG) {
             throw new AdmException($exceptionMessage, array($exception->getCode(), $exception->getMessage()));
         }
 
@@ -95,16 +115,11 @@ final class SecurityUtils
      */
     public static function getRandomInt($min, $max, $exceptionOnInsecurePRNG = false)
     {
-        try
-        {
+        try {
             $int = \random_int($min, $max);
-        }
-        catch (\Error $e)
-        {
+        } catch (\Error $e) {
             $int = self::getRandomIntFallback($min, $max, $exceptionOnInsecurePRNG, $e, 'SYS_GEN_RANDOM_ERROR');
-        }
-        catch (\Exception $e)
-        {
+        } catch (\Exception $e) {
             $int = self::getRandomIntFallback($min, $max, $exceptionOnInsecurePRNG, $e, 'SYS_GEN_RANDOM_EXCEPTION');
         }
 
@@ -124,33 +139,44 @@ final class SecurityUtils
      */
     public static function getRandomString($length = 16, $charset = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
     {
-        if ($length < 4)
-        {
+        if ($length < 4) {
             throw new \RuntimeException('Min-length is 4.');
         }
 
         $charsetLength = strlen($charset);
 
         // Check for duplicate chars in charset
-        if ($charsetLength !== strlen(implode('', array_unique(str_split($charset)))))
-        {
+        if ($charsetLength !== strlen(implode('', array_unique(str_split($charset))))) {
             throw new \UnexpectedValueException('Charset contains duplicate chars.');
         }
 
         // Check for a minimum of 2 unique chars
-        if ($charsetLength < 2)
-        {
+        if ($charsetLength < 2) {
             throw new \UnexpectedValueException('Charset must contain at least 2 unique chars.');
         }
 
         $randomString = '';
         $charsetMaxIndex = $charsetLength - 1;
-        for ($i = 0; $i < $length; ++$i)
-        {
+        for ($i = 0; $i < $length; ++$i) {
             $randomInt = self::getRandomInt(0, $charsetMaxIndex);
             $randomString .= $charset[$randomInt];
         }
 
         return $randomString;
+    }
+
+    /**
+     * Method will check the CSRF token from the parameter against the CSRF token of the
+     * current session. If these tokens doesn't match an exception will be thrown.
+     * @param string $csrfToken The CSRF token that should be validated.
+     * @throws AdmException Tokens doesn't match.
+     */
+    public static function validateCsrfToken($csrfToken)
+    {
+        global $gCurrentSession;
+
+        if ($csrfToken !== $gCurrentSession->getCsrfToken()) {
+            throw new AdmException('Invalid or missing CSRF token!');
+        }
     }
 }

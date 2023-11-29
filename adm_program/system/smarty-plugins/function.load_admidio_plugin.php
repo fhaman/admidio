@@ -16,7 +16,7 @@
  * <span>Some other html code</span>
  * ```
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  */
@@ -24,22 +24,19 @@ function smarty_function_load_admidio_plugin(array $params, Smarty_Internal_Temp
 {
     global $gLogger, $gL10n, $gDb, $gCurrentSession, $gCurrentOrganization, $gCurrentUser;
     global $gValidLogin, $gProfileFields, $gHomepage, $gDbType, $gSettingsManager;
-    global $g_root_path, $gPreferences;
+    global $g_root_path, $gPreferences, $gCurrentOrgId, $gCurrentUserId;
 
-    if(empty($params['plugin']))
-    {
+    if (empty($params['plugin'])) {
         throw new \UnexpectedValueException('Smarty funxtion load_admidio_plugin: missing "plugin" parameter');
     }
 
-    if(empty($params['file']))
-    {
+    if (empty($params['file'])) {
         throw new \UnexpectedValueException('Smarty funxtion load_admidio_plugin: missing "file" parameter');
     }
 
     $filename = ADMIDIO_PATH . FOLDER_PLUGINS . '/' . $params['plugin'] . '/' . $params['file'];
 
-    if(!is_file($filename))
-    {
+    if (!is_file($filename)) {
         throw new \UnexpectedValueException('Invalid plugin file ' . $filename . ' !');
     }
 

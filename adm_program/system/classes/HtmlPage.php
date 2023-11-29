@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -27,7 +27,6 @@
  * $page->show();
  * ```
  */
-
 class HtmlPage extends \Smarty
 {
     /**
@@ -51,13 +50,9 @@ class HtmlPage extends \Smarty
      */
     protected $pageContent = '';
     /**
-     * @var MenuNode An object that represents all functions of the current page that should be shown in the default menu
+     * @var MenuNode An object that represents all functions of the current page that should be shown in the menu of this page
      */
     protected $menuNodePageFunctions;
-    /**
-     * @var bool Flag if the current page has a navbar.
-     */
-    protected $hasNavbar = false;
     /**
      * @var array<int,string> An array with all necessary cascading style sheets files for the html page.
      */
@@ -110,27 +105,23 @@ class HtmlPage extends \Smarty
         $this->id = $id;
         $this->showBackLink = true;
 
-        if($headline !== '')
-        {
+        if ($headline !== '') {
             $this->setHeadline($headline);
         }
 
         parent::__construct();
 
         // initialize php template engine smarty
-        if(defined('THEME_PATH'))
-        {
+        if (defined('THEME_PATH')) {
             $this->setTemplateDir(THEME_PATH . '/templates/');
         }
 
         $this->setCacheDir(ADMIDIO_PATH . FOLDER_DATA . '/templates/cache/');
         $this->setCompileDir(ADMIDIO_PATH . FOLDER_DATA . '/templates/compile/');
-        $this->setConfigDir(ADMIDIO_PATH . FOLDER_LIBS_SERVER . '/smarty/configs/');
         $this->addPluginsDir(ADMIDIO_PATH . '/adm_program/system/smarty-plugins/');
 
-        if(is_object($gSettingsManager) && $gSettingsManager->has('system_browser_update_check')
-        && $gSettingsManager->getBool('system_browser_update_check'))
-        {
+        if (is_object($gSettingsManager) && $gSettingsManager->has('system_browser_update_check')
+        && $gSettingsManager->getBool('system_browser_update_check')) {
             $this->addJavascriptFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/browser-update/browser-update.js');
         }
     }
@@ -141,14 +132,10 @@ class HtmlPage extends \Smarty
      */
     public function addCssFile($cssFile)
     {
-        if (!in_array($cssFile, $this->cssFiles, true))
-        {
-            if (str_starts_with($cssFile, 'http'))
-            {
+        if (!in_array($cssFile, $this->cssFiles, true)) {
+            if (str_starts_with($cssFile, 'http')) {
                 $this->cssFiles[] = $cssFile;
-            }
-            else
-            {
+            } else {
                 $this->cssFiles[] = $this->getDebugOrMinFilepath($cssFile);
             }
         }
@@ -161,12 +148,9 @@ class HtmlPage extends \Smarty
      */
     public function addRssFile($rssFile, $title = '')
     {
-        if ($title !== '')
-        {
+        if ($title !== '') {
             $this->rssFiles[$title] = $rssFile;
-        }
-        elseif (!in_array($rssFile, $this->rssFiles, true))
-        {
+        } elseif (!in_array($rssFile, $this->rssFiles, true)) {
             $this->rssFiles[] = $rssFile;
         }
     }
@@ -177,14 +161,10 @@ class HtmlPage extends \Smarty
      */
     public function addJavascriptFile($jsFile)
     {
-        if (!in_array($jsFile, $this->jsFiles, true))
-        {
-            if (str_starts_with($jsFile, 'http'))
-            {
+        if (!in_array($jsFile, $this->jsFiles, true)) {
+            if (str_starts_with($jsFile, 'http')) {
                 $this->jsFiles[] = $jsFile;
-            }
-            else
-            {
+            } else {
                 $this->jsFiles[] = $this->getDebugOrMinFilepath($jsFile);
             }
         }
@@ -198,12 +178,9 @@ class HtmlPage extends \Smarty
      */
     public function addJavascript($javascriptCode, $executeAfterPageLoad = false)
     {
-        if ($executeAfterPageLoad)
-        {
+        if ($executeAfterPageLoad) {
             $this->javascriptContentExecute .= $javascriptCode. "\n";
-        }
-        else
-        {
+        } else {
             $this->javascriptContent .= $javascriptCode. "\n";
         }
     }
@@ -275,8 +252,7 @@ class HtmlPage extends \Smarty
         $filepathDebug = '/' . $fileInfo['dirname'] . '/' . $filename . '.'     . $fileInfo['extension'];
         $filepathMin   = '/' . $fileInfo['dirname'] . '/' . $filename . '.min.' . $fileInfo['extension'];
 
-        if ((!$gDebug && is_file(ADMIDIO_PATH . $filepathMin)) || !is_file(ADMIDIO_PATH . $filepathDebug))
-        {
+        if ((!$gDebug && is_file(ADMIDIO_PATH . $filepathMin)) || !is_file(ADMIDIO_PATH . $filepathDebug)) {
             return ADMIDIO_URL . $filepathMin;
         }
 
@@ -307,8 +283,7 @@ class HtmlPage extends \Smarty
     {
         $html = '';
 
-        foreach ($this->cssFiles as $cssFile)
-        {
+        foreach ($this->cssFiles as $cssFile) {
             $html .= '<link rel="stylesheet" type="text/css" href="' . $cssFile . '" />'."\n";
         }
 
@@ -320,8 +295,7 @@ class HtmlPage extends \Smarty
     {
         $html = '';
 
-        foreach ($this->jsFiles as $jsFile)
-        {
+        foreach ($this->jsFiles as $jsFile) {
             $html .= '<script type="text/javascript" src="' . $jsFile . '"></script>'."\n";
         }
 
@@ -333,14 +307,10 @@ class HtmlPage extends \Smarty
     {
         $html = '';
 
-        foreach ($this->rssFiles as $title => $rssFile)
-        {
-            if (!is_numeric($title))
-            {
+        foreach ($this->rssFiles as $title => $rssFile) {
+            if (!is_numeric($title)) {
                 $html .= '<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $rssFile . '" />'."\n";
-            }
-            else
-            {
+            } else {
                 $html .= '<link rel="alternate" type="application/rss+xml" href="' . $rssFile . '" />'."\n";
             }
         }
@@ -355,15 +325,6 @@ class HtmlPage extends \Smarty
     public function getTitle()
     {
         return $this->title;
-    }
-
-    /**
-     * Flag if the current page has a navbar.
-     * @return void
-     */
-    public function hasNavbar()
-    {
-        $this->hasNavbar = true;
     }
 
     /**
@@ -382,8 +343,7 @@ class HtmlPage extends \Smarty
      */
     public function setHeadline($headline)
     {
-        if ($this->title === '')
-        {
+        if ($this->title === '') {
             $this->setTitle($headline);
         }
 
@@ -408,12 +368,9 @@ class HtmlPage extends \Smarty
     {
         global $gCurrentOrganization;
 
-        if ($title === '')
-        {
+        if ($title === '') {
             $this->title = $gCurrentOrganization->getValue('org_longname');
-        }
-        else
-        {
+        } else {
             $this->title = $gCurrentOrganization->getValue('org_longname') . ' - ' . $title;
         }
     }
@@ -437,22 +394,23 @@ class HtmlPage extends \Smarty
      */
     public function show()
     {
-        global $gDebug, $gMenu, $gCurrentOrganization, $gCurrentUser, $gValidLogin, $gL10n, $gSettingsManager, $gSetCookieForDomain, $gNavigation;
+        global $gDebug, $gMenu, $gCurrentOrganization, $gCurrentUser, $gValidLogin, $gL10n, $gSettingsManager,
+               $gSetCookieForDomain, $gNavigation;
 
         $urlImprint = '';
         $urlDataProtection = '';
         $hasPreviousUrl = false;
 
         // if there is more than 1 url in the stack than show the back button
-        if($this->showBackLink && $gNavigation->count() > 1)
-        {
+        if ($this->showBackLink && $gNavigation->count() > 1) {
             $hasPreviousUrl = true;
         }
 
-        // add page functions menu to global menu
-        $gMenu->addFunctionsNode($this->menuNodePageFunctions);
+        // disallow iFrame integration from other domains to avoid clickjacking attacks
+        header('X-Frame-Options: SAMEORIGIN');
 
         $this->assign('additionalHeaderData', $this->getHtmlAdditionalHeader());
+        $this->assign('languageIsoCode', $gL10n->getLanguageIsoCode());
         $this->assign('id', $this->id);
         $this->assign('title', $this->title);
         $this->assign('headline', $this->headline);
@@ -462,24 +420,24 @@ class HtmlPage extends \Smarty
         $this->assign('urlTheme', THEME_URL);
         $this->assign('javascriptContent', $this->javascriptContent);
         $this->assign('javascriptContentExecuteAtPageLoad', $this->javascriptContentExecute);
+        $this->assign('navigationStack', $gNavigation->getStack());
 
-        $this->assign('userId', $gCurrentUser->getValue('usr_id'));
+        $this->assign('userUuid', $gCurrentUser->getValue('usr_uuid'));
         $this->assign('validLogin', $gValidLogin);
         $this->assign('debug', $gDebug);
         $this->assign('registrationEnabled', $gSettingsManager->getBool('registration_enable_module'));
 
         $this->assign('printView', $this->printView);
-        $this->assign('menuSidebar', $gMenu->getHtml());
+        $this->assign('menuSidebar', $gMenu);
+        $this->assign('menuFunctions', $this->menuNodePageFunctions);
         $this->assign('templateFile', $this->templateFile);
         $this->assign('content', $this->pageContent);
 
         // add imprint and data protection
-        if ($gSettingsManager->has('system_url_imprint') && strlen($gSettingsManager->getString('system_url_imprint')) > 0)
-        {
+        if ($gSettingsManager->has('system_url_imprint') && strlen($gSettingsManager->getString('system_url_imprint')) > 0) {
             $urlImprint = $gSettingsManager->getString('system_url_imprint');
         }
-        if ($gSettingsManager->has('system_url_data_protection') && strlen($gSettingsManager->getString('system_url_data_protection')) > 0)
-        {
+        if ($gSettingsManager->has('system_url_data_protection') && strlen($gSettingsManager->getString('system_url_data_protection')) > 0) {
             $urlDataProtection = $gSettingsManager->getString('system_url_data_protection');
         }
         $this->assign('urlImprint', $urlImprint);
@@ -487,26 +445,19 @@ class HtmlPage extends \Smarty
         $this->assign('cookieNote', $gSettingsManager->getBool('system_cookie_note'));
 
         // show cookie note
-        if ($gSettingsManager->has('system_cookie_note') && $gSettingsManager->getBool('system_cookie_note'))
-        {
+        if ($gSettingsManager->has('system_cookie_note') && $gSettingsManager->getBool('system_cookie_note')) {
             $this->assign('cookieDomain', DOMAIN);
             $this->assign('cookiePrefix', COOKIE_PREFIX);
 
-            if ($gSetCookieForDomain)
-            {
+            if ($gSetCookieForDomain) {
                 $this->assign('cookiePath', '/');
-            }
-            else
-            {
+            } else {
                 $this->assign('cookiePath', ADMIDIO_URL_PATH . '/');
             }
 
-            if ($gSettingsManager->has('system_url_data_protection') && strlen($gSettingsManager->getString('system_url_data_protection')) > 0)
-            {
+            if ($gSettingsManager->has('system_url_data_protection') && strlen($gSettingsManager->getString('system_url_data_protection')) > 0) {
                 $this->assign('cookieDataProtectionUrl', '"href": "'. $gSettingsManager->getString('system_url_data_protection') .'", ');
-            }
-            else
-            {
+            } else {
                 $this->assign('cookieDataProtectionUrl', '');
             }
         }
@@ -514,13 +465,15 @@ class HtmlPage extends \Smarty
         // add translation object
         $this->assign('l10n', $gL10n);
 
-        if($this->modeInline)
-        {
-            $this->display('index_reduced.tpl');
-        }
-        else
-        {
-            $this->display('index.tpl');
+        try {
+            if ($this->modeInline) {
+                $this->display('index_reduced.tpl');
+            } else {
+                $this->display('index.tpl');
+            }
+        } catch (SmartyException $exception) {
+            echo $exception->getMessage();
+            echo '<br />Please check if the theme folder "<strong>' . $gSettingsManager->getString('theme') . '</strong>" exists within the folder "adm_themes".';
         }
     }
 }

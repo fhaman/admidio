@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_user_fields
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -18,8 +18,13 @@
  */
 class TableUserField extends TableAccess
 {
-    const MOVE_UP   = 'UP';
-    const MOVE_DOWN = 'DOWN';
+    public const MOVE_UP   = 'UP';
+    public const MOVE_DOWN = 'DOWN';
+
+    const USER_FIELD_REQUIRED_INPUT_NO = 0;
+    const USER_FIELD_REQUIRED_INPUT_YES = 1;
+    const USER_FIELD_REQUIRED_INPUT_ONLY_REGISTRATION = 2;
+    const USER_FIELD_REQUIRED_INPUT_NOT_REGISTRATION = 3;
 
     /**
      * @var bool|null Flag if the current user could view this user
@@ -81,8 +86,7 @@ class TableUserField extends TableAccess
                  WHERE lsc_usf_id = ? -- $usfId';
         $listsStatement = $this->db->queryPrepared($sql, array($usfId));
 
-        while($rowLst = $listsStatement->fetch())
-        {
+        while ($rowLst = $listsStatement->fetch()) {
             $sql = 'UPDATE '.TBL_LIST_COLUMNS.'
                        SET lsc_number = lsc_number - 1
                      WHERE lsc_lst_id = ? -- $rowLst[\'lsc_lst_id\']
@@ -103,13 +107,12 @@ class TableUserField extends TableAccess
                  WHERE lsc_usf_id = ? -- $usfId';
         $this->db->queryPrepared($sql, array($usfId));
 
-        if(is_object($gCurrentSession))
-        {
-            // all active users must renew their user data because the user field structure has been changed
-            $gCurrentSession->renewUserObject();
-        }
-
         $return = parent::delete();
+
+        if (is_object($gCurrentSession)) {
+            // all active users must renew their user data because the user field structure has been changed
+            $gCurrentSession->reloadAllSessions();
+        }
 
         $this->db->endTransaction();
 
@@ -126,10 +129,9 @@ class TableUserField extends TableAccess
      */
     private function getNewNameIntern($name, $index)
     {
-        $newNameIntern = strtoupper(str_replace(' ', '_', $name));
+        $newNameIntern = strtoupper(preg_replace('/[^A-Za-z0-9_]/', '', str_replace(' ', '_', $name)));
 
-        if ($index > 1)
-        {
+        if ($index > 1) {
             $newNameIntern = $newNameIntern . '_' . $index;
         }
 
@@ -138,8 +140,7 @@ class TableUserField extends TableAccess
                  WHERE usf_name_intern = ? -- $newNameIntern';
         $userFieldsStatement = $this->db->queryPrepared($sql, array($newNameIntern));
 
-        if ($userFieldsStatement->rowCount() > 0)
-        {
+        if ($userFieldsStatement->rowCount() > 0) {
             ++$index;
             $newNameIntern = $this->getNewNameIntern($name, $index);
         }
@@ -160,40 +161,32 @@ class TableUserField extends TableAccess
      */
     public function getValue($columnName, $format = '')
     {
-        if ($columnName === 'usf_description')
-        {
-            if (!isset($this->dbColumns['usf_description']))
-            {
+        if ($columnName === 'usf_description') {
+            if (!isset($this->dbColumns['usf_description'])) {
                 $value = '';
-            }
-            elseif ($format === 'database')
-            {
+            } elseif ($format === 'database') {
                 $value = html_entity_decode(StringUtils::strStripTags($this->dbColumns['usf_description']), ENT_QUOTES, 'UTF-8');
-            }
-            else
-            {
+            } else {
                 $value = $this->dbColumns['usf_description'];
             }
-        }
-        elseif ($columnName === 'usf_name_intern')
-        {
+        } elseif ($columnName === 'usf_name_intern') {
             // internal name should be read with no conversion
             $value = parent::getValue($columnName, 'database');
-        }
-        else
-        {
+        } else {
             $value = parent::getValue($columnName, $format);
         }
 
-        if ($value === null)
-        {
+        if ($value === null) {
             return '';
         }
 
-        if ($format !== 'database')
-        {
-            switch ($columnName)
-            {
+        if ($format === 'database') {
+            if ($columnName === 'usf_icon' && $value !== '' && !preg_match('/fa-[a-zA-z0-9]/', $value)) {
+                // if not font awesome icon that create url with icon file
+                $value = THEME_URL . '/images/' . $value;
+            }
+        } else {
+            switch ($columnName) {
                 case 'usf_name': // fallthrough
                 case 'cat_name':
                     // if text is a translation-id then translate it
@@ -201,29 +194,22 @@ class TableUserField extends TableAccess
 
                     break;
                 case 'usf_value_list':
-                    if ($this->dbColumns['usf_type'] === 'DROPDOWN' || $this->dbColumns['usf_type'] === 'RADIO_BUTTON')
-                    {
+                    if ($this->dbColumns['usf_type'] === 'DROPDOWN' || $this->dbColumns['usf_type'] === 'RADIO_BUTTON') {
                         $arrListValuesWithKeys = array(); // array with list values and keys that represents the internal value
 
                         // first replace windows new line with unix new line and then create an array
                         $valueFormated = str_replace("\r\n", "\n", $value);
                         $arrListValues = explode("\n", $valueFormated);
 
-                        foreach ($arrListValues as $key => &$listValue)
-                        {
-                            if ($this->dbColumns['usf_type'] === 'RADIO_BUTTON')
-                            {
+                        foreach ($arrListValues as $key => &$listValue) {
+                            if ($this->dbColumns['usf_type'] === 'RADIO_BUTTON') {
                                 // if value is imagefile or imageurl then show image
                                 if (Image::isFontAwesomeIcon($listValue)
-                                || StringUtils::strContains($listValue, '.png', false) || StringUtils::strContains($listValue, '.jpg', false)) // TODO: simplify check for images
-                                {
+                                || StringUtils::strContains($listValue, '.png', false) || StringUtils::strContains($listValue, '.jpg', false)) { // TODO: simplify check for images
                                     // if there is imagefile and text separated by | then explode them
-                                    if (str_contains($listValue, '|'))
-                                    {
+                                    if (str_contains($listValue, '|')) {
                                         list($listValueImage, $listValueText) = explode('|', $listValue);
-                                    }
-                                    else
-                                    {
+                                    } else {
                                         $listValueImage = $listValue;
                                         $listValueText  = $this->getValue('usf_name');
                                     }
@@ -231,20 +217,14 @@ class TableUserField extends TableAccess
                                     // if text is a translation-id then translate it
                                     $listValueText = Language::translateIfTranslationStrId($listValueText);
 
-                                    if ($format === 'text')
-                                    {
+                                    if ($format === 'text') {
                                         // if no image is wanted then return the text part or only the position of the entry
-                                        if (str_contains($listValue, '|'))
-                                        {
+                                        if (str_contains($listValue, '|')) {
                                             $listValue = $listValueText;
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             $listValue = $key + 1;
                                         }
-                                    }
-                                    else
-                                    {
+                                    } else {
                                         $listValue = Image::getIconHtml($listValueImage, $listValueText);
                                     }
                                 }
@@ -275,6 +255,33 @@ class TableUserField extends TableAccess
     }
 
     /**
+     * Checks if a profile field must have a value. This check is done against the configuration of that
+     * profile field. It is possible that the input is always required or only in a registration form or only in
+     * the own profile. Another case is always a required value except within a registration form.
+     * @param int $userId Optional the ID of the user for which the required profile field should be checked.
+     * @param bool $registration Set to **true** if the check should be done for a registration form. The default is **false**
+     * @return bool Returns true if the profile field has a required input.
+     */
+    public function hasRequiredInput(int $userId = 0, bool $registration = false): bool
+    {
+        global $gCurrentUserId;
+
+        $requiredInput = $this->getValue('usf_required_input');
+
+        if($requiredInput === TableUserField::USER_FIELD_REQUIRED_INPUT_YES) {
+            return true;
+        } elseif ($requiredInput === TableUserField::USER_FIELD_REQUIRED_INPUT_ONLY_REGISTRATION) {
+            if($userId === $gCurrentUserId || $registration) {
+                return true;
+            }
+        } elseif ($requiredInput === TableUserField::USER_FIELD_REQUIRED_INPUT_NOT_REGISTRATION && !$registration) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * This method checks if the current user is allowed to view this profile field. Therefore
      * the visibility of the category is checked. This method will not check the context if
      * the user is allowed to view the field because he has the right to edit the profile.
@@ -282,13 +289,10 @@ class TableUserField extends TableAccess
      */
     public function isVisible()
     {
-        global $gCurrentUser;
+        global $gCurrentUserId, $gCurrentUser;
 
-        $usrId = (int) $gCurrentUser->getValue('usr_id');
-
-        if ($this->mViewUserField === null || $this->mViewUserFieldUserId !== $usrId)
-        {
-            $this->mViewUserFieldUserId = $usrId;
+        if ($this->mViewUserField === null || $this->mViewUserFieldUserId !== $gCurrentUserId) {
+            $this->mViewUserFieldUserId = $gCurrentUserId;
 
             // check if the current user could view the category of the profile field
             $this->mViewUserField = in_array((int) $this->getValue('cat_id'), $gCurrentUser->getAllVisibleCategories('USF'), true);
@@ -301,6 +305,7 @@ class TableUserField extends TableAccess
      * Profile field will change the sequence one step up or one step down.
      * @param string $mode mode if the profile field move up or down, values are TableUserField::MOVE_UP, TableUserField::MOVE_DOWN
      * @throws AdmException
+     * @return bool Return true if the sequence of the category could be changed, otherwise false.
      */
     public function moveSequence($mode)
     {
@@ -312,13 +317,11 @@ class TableUserField extends TableAccess
                    AND usf_sequence = ? -- $usfSequence -/+ 1';
 
         // profile field will get one number lower and therefore move a position up in the list
-        if ($mode === self::MOVE_UP)
-        {
+        if ($mode === self::MOVE_UP) {
             $newSequence = $usfSequence - 1;
         }
         // profile field will get one number higher and therefore move a position down in the list
-        elseif ($mode === self::MOVE_DOWN)
-        {
+        elseif ($mode === self::MOVE_DOWN) {
             $newSequence = $usfSequence + 1;
         }
 
@@ -326,7 +329,40 @@ class TableUserField extends TableAccess
         $this->db->queryPrepared($sql, array($usfSequence, $usfCatId, $newSequence));
 
         $this->setValue('usf_sequence', $newSequence);
-        $this->save();
+        return $this->save();
+    }
+
+    /**
+     * Profile field will change the complete sequence.
+     * @param array $sequence the new sequence of profile fields (field IDs)
+     * @throws AdmException
+     * @return bool Return true if the sequence of the category could be changed, otherwise false.
+     */
+    public function setSequence($sequence)
+    {
+        $usfCatId = $this->getValue('usf_cat_id');
+        $usfUuid  = $this->getValue('usf_uuid');
+
+        $sql = 'UPDATE '.TBL_USER_FIELDS.'
+                   SET usf_sequence = ? -- new order sequence
+                 WHERE usf_uuid     = ? -- field ID;
+                   AND usf_cat_id   = ? -- $usfCatId;
+            ';
+
+        $newSequence = -1;
+        foreach ($sequence as $pos => $id) {
+            if ($id == $usfUuid) {
+                // Store position for later update
+                $newSequence = $pos + 1;
+            } else {
+                $this->db->queryPrepared($sql, array($pos + 1, $id, $usfCatId));
+            }
+        }
+
+        if ($newSequence > 0) {
+            $this->setValue('usf_sequence', $newSequence);
+        }
+        return $this->save();
     }
 
     /**
@@ -341,22 +377,26 @@ class TableUserField extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentSession;
+        global $gCurrentSession, $gCurrentUser;
+
+        // only administrators can edit profile fields
+        if (!$gCurrentUser->isAdministrator() && !$this->saveChangesWithoutRights) {
+            throw new AdmException('Profile field could not be saved because only administrators are allowed to edit profile fields.');
+            // => EXIT
+        }
 
         $fieldsChanged = $this->columnsValueChanged;
 
         // if new field than generate new name intern, otherwise no change will be made
-        if ($this->newRecord)
-        {
+        if ($this->newRecord) {
             $this->setValue('usf_name_intern', $this->getNewNameIntern($this->getValue('usf_name', 'database'), 1));
         }
 
         $returnValue = parent::save($updateFingerPrint);
 
-        if ($fieldsChanged && $gCurrentSession instanceof Session)
-        {
+        if ($fieldsChanged && $gCurrentSession instanceof Session) {
             // all active users must renew their user data because the user field structure has been changed
-            $gCurrentSession->renewUserObject();
+            $gCurrentSession->reloadAllSessions();
         }
 
         return $returnValue;
@@ -375,45 +415,40 @@ class TableUserField extends TableAccess
     {
         global $gL10n;
 
-        if($newValue !== parent::getValue($columnName))
-        {
-            if($checkValue)
-            {
-                if ($columnName === 'usf_description')
-                {
-                    return parent::setValue($columnName, $newValue, false);
-                }
-                elseif ($columnName === 'usf_cat_id')
-                {
-                    $category = new TableCategory($this->db, $newValue);
-
-                    if (!$category->isVisible() || $category->getValue('cat_type') !== 'USF')
-                    {
-                        throw new AdmException('Category of the user field '. $this->getValue('dat_name'). ' could not be set
-                            because the category is not visible to the current user and current organization.');
+        if ($newValue !== parent::getValue($columnName)) {
+            if ($checkValue) {
+                if ($columnName === 'usf_description') {
+                    // don't check value because it contains expected html tags
+                    $checkValue = false;
+                } elseif ($columnName === 'usf_cat_id') {
+                    $category = new TableCategory($this->db);
+                    if(is_int($newValue)) {
+                        if(!$category->readDataById($newValue)) {
+                            throw new AdmException('No Category with the given id '. $newValue. ' was found in the database.');
+                        }
+                    } else {
+                        if(!$category->readDataByUuid($newValue)) {
+                            throw new AdmException('No Category with the given uuid '. $newValue. ' was found in the database.');
+                        }
+                        $newValue = $category->getValue('cat_id');
                     }
-                }
-                elseif ($columnName === 'usf_url' && $newValue !== '')
-                {
+                } elseif ($columnName === 'usf_url' && $newValue !== '') {
                     $newValue = admFuncCheckUrl($newValue);
 
-                    if ($newValue === false)
-                    {
-                        throw new AdmException('SYS_URL_INVALID_CHAR', array($gL10n->get('ORG_URL')));
+                    if ($newValue === false) {
+                        throw new AdmException('SYS_URL_INVALID_CHAR', array($gL10n->get('SYS_URL')));
                     }
                 }
 
                 // name, category and type couldn't be edited if it's a system field
-                if (in_array($columnName, array('usf_cat_id', 'usf_type', 'usf_name'), true) && (int) $this->getValue('usf_system') === 1)
-                {
+                if (in_array($columnName, array('usf_cat_id', 'usf_type', 'usf_name'), true) && (int) $this->getValue('usf_system') === 1) {
                     throw new AdmException('The user field ' . $this->getValue('usf_name_intern') . ' as a system field. You could
                         not change the category, type or name.');
                 }
             }
 
-            if ($columnName === 'usf_cat_id' && (int) $this->getValue($columnName) !== (int) $newValue)
-            {
-                // erst einmal die hoechste Reihenfolgennummer der Kategorie ermitteln
+            if ($columnName === 'usf_cat_id' && (int) $this->getValue($columnName) !== (int) $newValue) {
+                // first determine the highest sequence number of the category
                 $sql = 'SELECT COUNT(*) AS count
                           FROM '.TBL_USER_FIELDS.'
                          WHERE usf_cat_id = ? -- $newValue';

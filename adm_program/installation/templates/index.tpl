@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- (c) 2004 - 2020 The Admidio Team - https://www.admidio.org -->
-
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="author"   content="Admidio Team" />
     <meta name="robots"   content="noindex" />
+
+    <!-- (c) 2004 - 2023 The Admidio Team - https://www.admidio.org -->
 
     <link rel="shortcut icon" type="image/x-icon" href="{$urlAdmidio}/adm_program/system/logo/favicon.ico" />
     <link rel="icon" type="image/png" href="{$urlAdmidio}/adm_program/system/logo/admidio_logo_32.png" sizes="32x32" />
@@ -41,6 +40,15 @@
     <div id="installation-body" class="admidio-area">
         <div class="admidio-container container">
             {include file=$templateFile}
+
+            <div id="imprint">Powered by <a href="https://www.admidio.org">Admidio</a> &copy; Admidio Team
+                {if $urlImprint != ''}
+                    &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlImprint}">{$l10n->get('SYS_IMPRINT')}</a>
+                {/if}
+                {if $urlDataProtection != ''}
+                    &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlDataProtection}">{$l10n->get('SYS_DATA_PROTECTION')}</a>
+                {/if}
+            </div>
         </div>
     </div>
 </body>

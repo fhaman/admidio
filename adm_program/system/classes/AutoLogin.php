@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -18,11 +18,11 @@
  * **Code examples**
  * ```
  * // create a valid user login for a Admidio session from auto login
- * $autoLogin = new AutoLogin($gDb, $gSessionId);
+ * $autoLogin = new AutoLogin($gDb, $sessionId);
  * $autoLogin->setValidLogin($gCurrentSession, $_COOKIE['ADMIDIO_ID']);
  *
  * // delete an auto login
- * $autoLogin = new AutoLogin($gDb, $gSessionId);
+ * $autoLogin = new AutoLogin($gDb, $sessionId);
  * $autoLogin->delete();
  * ```
  */
@@ -40,12 +40,9 @@ class AutoLogin extends TableAccess
         parent::__construct($database, TBL_AUTO_LOGIN, 'atl');
 
         // if not integer than the auto-login-id is commited
-        if (is_int($session))
-        {
+        if (is_int($session)) {
             $this->readDataById($session);
-        }
-        else
-        {
+        } else {
             $this->readDataByColumns(array('atl_auto_login_id' => $session));
         }
     }
@@ -59,12 +56,9 @@ class AutoLogin extends TableAccess
     {
         $loginId = '';
 
-        try
-        {
+        try {
             $loginId = $userId . ':' . SecurityUtils::getRandomString(40);
-        }
-        catch (AdmException $e)
-        {
+        } catch (AdmException $e) {
             $e->showText();
             // => EXIT
         }
@@ -83,17 +77,14 @@ class AutoLogin extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentOrganization;
-
         // Insert & Update
         $this->setValue('atl_last_login', DATETIME_NOW);
 
-        if ($this->newRecord)
-        {
+        if ($this->newRecord) {
             // Insert
-            $this->setValue('atl_org_id', (int) $gCurrentOrganization->getValue('org_id'));
+            $this->setValue('atl_org_id', $GLOBALS['gCurrentOrgId']);
 
-            // Tabelle aufraeumen, wenn ein neuer Datensatz geschrieben wird
+            // Clean up table when a new record is written
             $this->tableCleanup();
         }
 

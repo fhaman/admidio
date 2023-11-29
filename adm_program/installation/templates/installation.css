@@ -1,7 +1,7 @@
 /******************************************************************************
  * Cascading-Style-Sheets file for Admidio
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  *
@@ -57,10 +57,6 @@ body {
     background-color: #eeeeee;
 }
 
-h6, h5 {
-    font-weight: bold;
-}
-
 a, .btn-link, .page-link, a.btn {
     color: #349aaa;
 }
@@ -104,8 +100,8 @@ label img, .form-control-static img {
 }
 
 .admidio-icon-link {
-    margin-left: 0px;
-    padding-left: 0px;
+    margin-left: 0;
+    padding-left: 0;
     text-align: left;
 }
 
@@ -137,7 +133,7 @@ label img, .form-control-static img {
 /***********************************/
 .admidio-form-group-required label:after,
 .admidio-form-required-notice span:after {
-    font-family: "Font Awesome 5 Free";
+    font-family: "Font Awesome 5 Free", serif;
     font-size: 6pt;
     content: "\f111";
     color: #d91515;
@@ -180,7 +176,7 @@ input[type=checkbox] {
 
 label {
     font-weight: bold;
-    padding-right: 0px !important;
+    padding-right: 0 !important;
 }
 
 @media (min-width: 768px) {
@@ -205,16 +201,17 @@ label {
     margin-right: 15px;
 }
 
-input[data-provide=datepicker], input[data-provide=datepicker-birthday] {
+input[type=date] {
     width: 200px;
 }
 
 .datetime-date-control {
-    display: inline;
+    display: inline-block;
 }
 
 .datetime-time-control {
-    width: 100px !important;
+    display: inline-block;
+    width: 110px !important;
     margin-left: 20px;
 }
 
@@ -246,11 +243,11 @@ input[data-provide=datepicker], input[data-provide=datepicker-birthday] {
 }
 
 .card-header .float-right .fas {
-    margin-right: 0px;
+    margin-right: 0;
 }
 
 .card-header .dropdown .fas, .card-header .dropdown .fab {
-    margin-right: 0px;
+    margin-right: 0;
 }
 
 .admidio-blog .card-footer {
@@ -260,16 +257,16 @@ input[data-provide=datepicker], input[data-provide=datepicker-birthday] {
 .admidio-field-group .list-group-item {
     border: none;
     background-color: #eeeeee;
-    padding: 0px 0px 1rem 0px;
+    padding: 0 0 1rem 0;
 }
 
 .admidio-field-group .list-group-item .list-group-item {
-    padding: 0px;
+    padding: 0;
 }
 
 .card .admidio-info-created-edited {
-    margin-bottom: 0px;
-    margin-top: 0px;
+    margin-bottom: 0;
+    margin-top: 0;
 }
 
 .card-footer .admidio-info-created-edited {
@@ -281,7 +278,7 @@ input[data-provide=datepicker], input[data-provide=datepicker-birthday] {
 /***********************************/
 
 .navbar button {
-    margin-bottom: 0px;
+    margin-bottom: 0;
 }
 
 .navbar label {
@@ -356,6 +353,7 @@ input[data-provide=datepicker], input[data-provide=datepicker-birthday] {
     border: 9px solid transparent;
     border-left-color: #263340;
     border-right-width: 0;
+    margin-top: -7px;
 }
 
 .progress {

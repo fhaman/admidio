@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Klasse um htaccessFiles anzulegen
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -45,24 +45,36 @@ class Htaccess
      */
     public function protectFolder()
     {
-        if (is_file($this->folderPath . '/.htaccess'))
-        {
+        if (is_file($this->folderPath . '/.htaccess')) {
             return true;
         }
 
-        try
-        {
+        try {
             FileSystemUtils::createDirectoryIfNotExists($this->folderPath);
 
             $lines = array(
-                'Order deny,allow',
-                'Deny from all'
+                '<IfModule mod_version.c>',
+                ' <IfVersion < 2.4>',
+                '  Order Deny,Allow',
+                '  Deny from All',
+                ' </IfVersion>',
+                ' <IfVersion >= 2.4>',
+                '  Require all denied',
+                ' </IfVersion>',
+                '</IfModule>',
+                '<IfModule !mod_version.c>',
+                ' <IfModule !mod_authz_core.c>',
+                '  Order Allow,Deny',
+                '  Deny from All',
+                ' </IfModule>',
+                ' <IfModule mod_authz_core.c>',
+                '  Require all denied',
+                ' </IfModule>',
+                '</IfModule>'
             );
             $data = implode("\n", $lines) . "\n";
             FileSystemUtils::writeFile($this->folderPath . '/.htaccess', $data);
-        }
-        catch (\RuntimeException $exception)
-        {
+        } catch (\RuntimeException $exception) {
             return false;
         }
 
@@ -75,12 +87,9 @@ class Htaccess
      */
     public function unprotectFolder()
     {
-        try
-        {
+        try {
             FileSystemUtils::deleteFileIfExists($this->folderPath . '/.htaccess');
-        }
-        catch (\RuntimeException $exception)
-        {
+        } catch (\RuntimeException $exception) {
             return false;
         }
 

@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Validate login data, create cookie and sign in the user to Admidio
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -14,7 +14,7 @@ require_once(__DIR__ . '/common.php');
 $bAutoLogin     = false;
 $loginname      = '';
 $password       = '';
-$organizationId = (int) $gCurrentOrganization->getValue('org_id');
+$organizationId = $gCurrentOrgId;
 
 // Filter parameters
 // parameters could be from login dialog or login plugin !!!
@@ -28,13 +28,11 @@ function initLoginParams($prefix)
     $loginname = $_POST[$prefix . 'usr_login_name'];
     $password  = $_POST[$prefix . 'usr_password'];
 
-    if ($gSettingsManager->getBool('enable_auto_login') && array_key_exists($prefix . 'auto_login', $_POST) && $_POST[$prefix . 'auto_login'] == 1)
-    {
+    if ($gSettingsManager->getBool('enable_auto_login') && array_key_exists($prefix . 'auto_login', $_POST) && $_POST[$prefix . 'auto_login'] == 1) {
         $bAutoLogin = true;
     }
     // if user can choose organization then save the selection
-    if (array_key_exists($prefix . 'org_id', $_POST) && is_numeric($_POST[$prefix . 'org_id']) && $_POST[$prefix . 'org_id'] > 0)
-    {
+    if (array_key_exists($prefix . 'org_id', $_POST) && is_numeric($_POST[$prefix . 'org_id']) && $_POST[$prefix . 'org_id'] > 0) {
         $organizationId = (int) $_POST[$prefix . 'org_id'];
     }
 }
@@ -52,26 +50,24 @@ function initLoginParams($prefix)
  */
 function createUserObjectFromPost()
 {
-    global $gLogger, $gCurrentUser, $gMenu, $loginname, $password, $gDb, $gL10n, $gCurrentOrganization, $bAutoLogin, $organizationId, $gProfileFields, $userStatement, $gCurrentSession;
+    global $gCurrentUser, $gSettingsManager, $gMenu, $loginname, $password, $gDb, $gL10n;
+    global $gCurrentOrganization, $bAutoLogin, $organizationId, $gProfileFields, $userStatement;
+    global $gCurrentSession, $gCurrentOrgId;
 
-    if (array_key_exists('usr_login_name', $_POST) && $_POST['usr_login_name'] !== '')
-    {
+    if (array_key_exists('usr_login_name', $_POST) && $_POST['usr_login_name'] !== '') {
         initLoginParams('');
     }
 
-    if (array_key_exists('plg_usr_login_name', $_POST) && $_POST['plg_usr_login_name'] !== '')
-    {
+    if (array_key_exists('plg_usr_login_name', $_POST) && $_POST['plg_usr_login_name'] !== '') {
         initLoginParams('plg_');
     }
 
-    if ($loginname === '')
-    {
+    if ($loginname === '') {
         throw new AdmException('SYS_FIELD_EMPTY', array($gL10n->get('SYS_USERNAME')));
         // => EXIT
     }
 
-    if ($password === '')
-    {
+    if ($password === '') {
         throw new AdmException('SYS_FIELD_EMPTY', array($gL10n->get('SYS_PASSWORD')));
         // => EXIT
     }
@@ -82,22 +78,16 @@ function createUserObjectFromPost()
              WHERE UPPER(usr_login_name) = UPPER(?)';
     $userStatement = $gDb->queryPrepared($sql, array($loginname));
 
-    if ($userStatement->rowCount() === 0)
-    {
-        $gLogger->warning('AUTHENTICATION: Incorrect username/password!', array(
-            'username' => $loginname,
-            'password' => '******'
-        ));
-
+    if ($userStatement->rowCount() === 0) {
         throw new AdmException('SYS_LOGIN_USERNAME_PASSWORD_INCORRECT');
         // => EXIT
     }
 
     // if login organization is different to organization of config file then create new session variables
-    if ($organizationId !== (int) $gCurrentOrganization->getValue('org_id'))
-    {
+    if ($organizationId !== $gCurrentOrgId) {
         // read organization of config file with their preferences
         $gCurrentOrganization->readDataById($organizationId);
+        $gCurrentOrgId = $organizationId;
 
         // read new profile field structure for this organization
         $gProfileFields->readProfileFields($organizationId);
@@ -105,6 +95,9 @@ function createUserObjectFromPost()
         // save new organization id to session
         $gCurrentSession->setValue('ses_org_id', $organizationId);
         $gCurrentSession->save();
+
+        // read all settings from the new organization
+        $gSettingsManager = new SettingsManager($gDb, $organizationId);
     }
 
     // remove all menu entries
@@ -112,6 +105,7 @@ function createUserObjectFromPost()
 
     // create user object
     $gCurrentUser = new User($gDb, $gProfileFields, (int) $userStatement->fetchColumn());
+    $gCurrentUserId = $gCurrentUser->getValue('usr_id');
 
     return $gCurrentUser->checkLogin($password, $bAutoLogin);
 }

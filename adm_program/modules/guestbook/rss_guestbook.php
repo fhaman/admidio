@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * RSS feed for the guestbook
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -24,16 +24,14 @@
 require_once(__DIR__ . '/../../system/common.php');
 
 // Nachschauen ob RSS ueberhaupt aktiviert ist...
-if (!$gSettingsManager->getBool('enable_rss'))
-{
+if (!$gSettingsManager->getBool('enable_rss')) {
     $gMessage->setForwardUrl($gHomepage);
     $gMessage->show($gL10n->get('SYS_RSS_DISABLED'));
     // => EXIT
 }
 
 // check if the module is enabled and disallow access if it's disabled
-if ((int) $gSettingsManager->get('enable_guestbook_module') !== 1)
-{
+if ((int) $gSettingsManager->get('enable_guestbook_module') !== 1) {
     $gMessage->show($gL10n->get('SYS_MODULE_DISABLED'));
     // => EXIT
 }
@@ -44,11 +42,11 @@ $getHeadline = admFuncVariableIsValid($_GET, 'headline', 'string', array('defaul
 // die 10 letzten Eintraege aus der DB fischen...
 $sql = 'SELECT *
           FROM '.TBL_GUESTBOOK.'
-         WHERE gbo_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
-           AND gbo_locked = 0
+         WHERE gbo_org_id = ? -- $gCurrentOrgId
+           AND gbo_locked = false
       ORDER BY gbo_timestamp_create DESC
          LIMIT 10';
-$statement = $gDb->queryPrepared($sql, array((int) $gCurrentOrganization->getValue('org_id')));
+$statement = $gDb->queryPrepared($sql, array($gCurrentOrgId));
 
 // ab hier wird der RSS-Feed zusammengestellt
 
@@ -63,8 +61,7 @@ $rss = new RssFeed(
 $guestbook = new TableGuestbook($gDb);
 
 // Dem RssFeed-Objekt jetzt die RSSitems zusammenstellen und hinzufuegen
-while ($row = $statement->fetch())
-{
+while ($row = $statement->fetch()) {
     // ausgelesene Gaestebuchdaten in Guestbook-Objekt schieben
     $guestbook->clear();
     $guestbook->setArray($row);

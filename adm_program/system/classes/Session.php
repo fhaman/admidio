@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -44,34 +44,38 @@ class Session extends TableAccess
      * @var string
      */
     protected $cookieAutoLoginId;
+    /**
+     * @var string a 30 character long CSRF token
+     */
+    protected $csrfToken = '';
 
     /**
      * Constructor that will create an object of a recordset of the table adm_sessions.
      * If the id is set than the specific session will be loaded.
      * @param Database   $database     Object of the class Database. This should be the default global object **$gDb**.
-     * @param int|string $session      The recordset of the session with this id will be loaded.
-     *                                 The session can be the table id or the alphanumeric session id.
-     *                                 If id isn't set than an empty object of the table is created.
      * @param string     $cookiePrefix The prefix that is used for cookies
      */
-    public function __construct(Database $database, $session = 0, $cookiePrefix = '')
+    public function __construct(Database $database, $cookiePrefix = '')
     {
         parent::__construct($database, TBL_SESSIONS, 'ses');
 
+        // determine session id
+        if (array_key_exists(COOKIE_PREFIX . '_SESSION_ID', $_COOKIE)) {
+            $sessionId = $_COOKIE[COOKIE_PREFIX . '_SESSION_ID'];
+        } else {
+            $sessionId = session_id();
+        }
+
         $this->cookieAutoLoginId = $cookiePrefix . '_AUTO_LOGIN_ID';
 
-        if (is_int($session))
-        {
-            $this->readDataById($session);
-        }
-        else
-        {
-            $this->readDataByColumns(array('ses_session_id' => $session));
+        if (is_int($sessionId)) {
+            $this->readDataById($sessionId);
+        } else {
+            $this->readDataByColumns(array('ses_session_id' => $sessionId));
 
-            if ($this->newRecord)
-            {
-                // if PHP session id was commited then store them in that field
-                $this->setValue('ses_session_id', $session);
+            if ($this->newRecord) {
+                // if PHP session id was committed then store them in that field
+                $this->setValue('ses_session_id', $sessionId);
                 $this->setValue('ses_timestamp', DATETIME_NOW);
             }
         }
@@ -87,10 +91,9 @@ class Session extends TableAccess
      * @param object $object     The object that should be stored in this class.
      * @return bool Return false if object isn't type object or objectName already exists
      */
-    public function addObject($objectName, &$object)
+    public function addObject(string $objectName, &$object): bool
     {
-        if (is_object($object) && !array_key_exists($objectName, $this->mObjectArray))
-        {
+        if (is_object($object) && !array_key_exists($objectName, $this->mObjectArray)) {
             $this->mObjectArray[$objectName] = &$object;
             return true;
         }
@@ -104,23 +107,40 @@ class Session extends TableAccess
     {
         global $gCurrentUser;
 
-        if (isset($gCurrentUser) && $gCurrentUser instanceof User)
-        {
+        if (isset($gCurrentUser) && $gCurrentUser instanceof User) {
             $gCurrentUser->clear();
         }
         $this->setValue('ses_usr_id', '');
     }
 
     /**
+     * Returns a CSRF token from the session. If no CSRF token exists a new one will be
+     * generated and stored within the session. The next call of the method will than
+     * return the existing token. The CSRF token has 30 characters. A new token could
+     * be forced by the parameter **$newToken**
+     * @param bool $newToken If set to true, always a new token will be generated.
+     * @return string Returns the CSRF token
+     * @throws AdmException
+     * @throws AdmException
+     */
+    public function getCsrfToken(bool $newToken = false): string
+    {
+        if ($this->csrfToken === '' || $newToken) {
+            $this->csrfToken = SecurityUtils::getRandomString(30);
+        }
+
+        return $this->csrfToken;
+    }
+
+    /**
      * Returns a reference of an object that is stored in the session.
-     * This is necessary because the old database connection is not longer valid.
+     * This is necessary because the old database connection is not valid anymore.
      * @param string $objectName Internal unique name of the object. The name was set with the method **addObject**
      * @return object|false Returns the reference to the object or false if the object was not found.
      */
-    public function &getObject($objectName)
+    public function &getObject(string $objectName)
     {
-        if (!array_key_exists($objectName, $this->mObjectArray))
-        {
+        if (!array_key_exists($objectName, $this->mObjectArray)) {
             // use parameter because we return a reference so only value will return an error
             $returnValue = false;
             return $returnValue;
@@ -136,10 +156,9 @@ class Session extends TableAccess
      * user had set the AutoLogin to a different organization.
      * @return int Returns the organization id of this session
      */
-    public function getOrganizationId()
+    public function getOrganizationId(): int
     {
-        if ($this->mAutoLogin instanceof AutoLogin)
-        {
+        if ($this->mAutoLogin instanceof AutoLogin) {
             return (int) $this->mAutoLogin->getValue('atl_org_id');
         }
 
@@ -151,9 +170,22 @@ class Session extends TableAccess
      * @param string $objectName Internal unique name of the object. The name was set with the method **addObject**
      * @return bool Returns **true** if the object exits otherwise **false**
      */
-    public function hasObject($objectName)
+    public function hasObject(string $objectName): bool
     {
         return array_key_exists($objectName, $this->mObjectArray);
+    }
+
+    /**
+     * Initialize the array with all objects except the gNavigation object. If the session got a refresh
+     * the existing navigation should still be stored in the refreshed session.
+     */
+    public function initializeObjects()
+    {
+        foreach($this->mObjectArray as $key => $element) {
+            if($key !== 'gNavigation') {
+                unset($this->mObjectArray[$key]);
+            }
+        }
     }
 
     /**
@@ -162,21 +194,18 @@ class Session extends TableAccess
      * @param int $userId The user id must be stored in this session and will be checked if valid.
      * @return bool Returns **true** if the user has a valid session login otherwise **false**;
      */
-    public function isValidLogin($userId)
+    public function isValidLogin(int $userId): bool
     {
         global $gSettingsManager;
 
-        if ($userId > 0)
-        {
-            if ((int) $this->getValue('ses_usr_id') === $userId)
-            {
+        if ($userId > 0) {
+            if ((int) $this->getValue('ses_usr_id') === $userId) {
                 // session has a user assigned -> check if login is still valid
                 $timeGap = time() - strtotime($this->getValue('ses_timestamp', 'Y-m-d H:i:s'));
 
-                // Check how long the user was inactive. If time range is to long -> logout
+                // Check how long the user was inactive. If time range is too long -> logout
                 // if user has auto login than session is also valid
-                if ($this->mAutoLogin instanceof AutoLogin || $timeGap < $gSettingsManager->getInt('logout_minutes') * 60)
-                {
+                if ($this->mAutoLogin instanceof AutoLogin || $timeGap < $gSettingsManager->getInt('logout_minutes') * 60) {
                     return true;
                 }
             }
@@ -201,8 +230,7 @@ class Session extends TableAccess
         $this->setValue('ses_usr_id', '');
         $this->save();
 
-        if ($this->mAutoLogin instanceof AutoLogin)
-        {
+        if ($this->mAutoLogin instanceof AutoLogin) {
             // remove auto login cookie from users browser by setting expired timestamp to 0
             self::setCookie($this->cookieAutoLoginId, $this->mAutoLogin->getValue('atl_auto_login_id'));
 
@@ -212,6 +240,10 @@ class Session extends TableAccess
         }
 
         $this->db->endTransaction();
+
+        // remove session object with all data
+        session_unset();
+        session_destroy();
     }
 
     /**
@@ -221,14 +253,12 @@ class Session extends TableAccess
      */
     public function refreshAutoLogin()
     {
-        if (array_key_exists($this->cookieAutoLoginId, $_COOKIE))
-        {
+        if (array_key_exists($this->cookieAutoLoginId, $_COOKIE)) {
             // restore user from auto login session
             $this->mAutoLogin = new AutoLogin($this->db, $_COOKIE[$this->cookieAutoLoginId]);
 
             // valid AutoLogin found
-            if ($this->mAutoLogin->getValue('atl_id') > 0)
-            {
+            if ($this->mAutoLogin->getValue('atl_id') > 0) {
                 $autoLoginId = $this->mAutoLogin->generateAutoLoginId((int) $this->getValue('ses_usr_id'));
                 $this->mAutoLogin->setValue('atl_auto_login_id', $autoLoginId);
                 $this->mAutoLogin->setValue('atl_session_id', $this->getValue('ses_session_id'));
@@ -237,15 +267,13 @@ class Session extends TableAccess
                 $this->setValue('ses_usr_id', (int) $this->mAutoLogin->getValue('atl_usr_id'));
 
                 // save cookie for autologin
-                $currDateTime = new \DateTime();
-                $oneYearDateInterval = new \DateInterval('P1Y');
+                $currDateTime = new DateTime();
+                $oneYearDateInterval = new DateInterval('P1Y');
                 $oneYearAfterDateTime = $currDateTime->add($oneYearDateInterval);
                 $timestampExpired = $oneYearAfterDateTime->getTimestamp();
 
                 self::setCookie($this->cookieAutoLoginId, $this->mAutoLogin->getValue('atl_auto_login_id'), $timestampExpired);
-            }
-            else
-            {
+            } else {
                 // an invalid AutoLogin should made the current AutoLogin unusable
                 $this->mAutoLogin = null;
                 self::setCookie($this->cookieAutoLoginId, $_COOKIE[$this->cookieAutoLoginId]);
@@ -254,8 +282,7 @@ class Session extends TableAccess
                 $autoLoginParts = explode(':', $_COOKIE[$this->cookieAutoLoginId]);
                 $userId = $autoLoginParts[0];
 
-                if($userId > 0)
-                {
+                if ($userId > 0) {
                     $sql = 'UPDATE '.TBL_AUTO_LOGIN.'
                                SET atl_number_invalid = atl_number_invalid + 1
                              WHERE atl_usr_id = ? -- $userId';
@@ -271,97 +298,76 @@ class Session extends TableAccess
     }
 
     /**
-     * Reload session data from database table adm_sessions. Refresh AutoLogin with
-     * new auto_login_id. Check renew flag and reload organization object if necessary.
+     * Reload session data from database table adm_sessions. If IP address check is activated than check if the IP
+     * address has changed. Refresh AutoLogin with new auto_login_id.
      */
-    public function refreshSession()
+    public function refresh()
     {
-        global $gCheckIpAddress, $gLogger;
-
-        // read session data from database to update the renew flag
-        $this->readDataById((int) $this->getValue('ses_id'));
+        // read session data from database to update the reload flag
+        if(!$this->readDataById((int) $this->getValue('ses_id'))) {
+            // if session was not found than destroy session object
+            unset($_SESSION['gCurrentSession']);
+            $this->initializeObjects();
+            $this->clear();
+        }
 
         // check if current connection has same ip address as of session initialization
         // if config parameter $gCheckIpAddress = 0 then don't check ip address
         $sesIpAddress = $this->getValue('ses_ip_address');
-        if (isset($gCheckIpAddress) && $gCheckIpAddress && $sesIpAddress !== '' && $sesIpAddress !== $_SERVER['REMOTE_ADDR'])
-        {
-            $gLogger->warning('Admidio stored session ip address: ' . $sesIpAddress . ' :: Remote ip address: ' . $_SERVER['REMOTE_ADDR']);
-            $gLogger->warning('The IP address does not match with the IP address the current session was started! For safety reasons the current session was closed.');
+        if (isset($GLOBALS['gCheckIpAddress']) && $GLOBALS['gCheckIpAddress'] && $sesIpAddress !== '' && $sesIpAddress !== $_SERVER['REMOTE_ADDR']) {
+            $GLOBALS['gLogger']->warning('Admidio stored session ip address: ' . $sesIpAddress . ' :: Remote ip address: ' . $_SERVER['REMOTE_ADDR']);
+            $GLOBALS['gLogger']->warning('The IP address does not match with the IP address the current session was started! For safety reasons the current session was closed.');
 
             unset($_SESSION['gCurrentSession']);
-            $this->mObjectArray = array();
+            $this->initializeObjects();
             $this->clear();
 
             exit('The IP address does not match with the IP address the current session was started! For safety reasons the current session was closed.');
         }
 
         // session in database could be deleted if user was some time inactive and another user
-        // clears the table. Therefore we must reset the user id
-        if ($this->mAutoLogin instanceof AutoLogin)
-        {
-            if((int) $this->getValue('ses_usr_id') === 0)
-            {
+        // clears the table. Therefor we must reset the user id
+        if ($this->mAutoLogin instanceof AutoLogin) {
+            if ((int) $this->getValue('ses_usr_id') === 0) {
                 $this->setValue('ses_usr_id', (int) $this->mAutoLogin->getValue('atl_usr_id'));
             }
-        }
-        elseif(array_key_exists($this->cookieAutoLoginId, $_COOKIE))
-        {
+        } elseif (array_key_exists($this->cookieAutoLoginId, $_COOKIE)) {
             $this->refreshAutoLogin();
         }
-
-        // if flag for reload of organization is set than reload the organization data
-        $sesRenew = (int) $this->getValue('ses_renew');
-        if ($sesRenew === 2 || $sesRenew === 3)
-        {
-            $organization =& $this->getObject('gCurrentOrganization');
-            $organization->readDataById((int) $organization->getValue('org_id'));
-            $this->setValue('ses_renew', 0);
-        }
     }
 
     /**
-     * If you call this function than a flag is set so that all other active sessions
-     * know that they should renew the menu object. They will renew it when the
-     * user perform the next action.
+     * This method will replace the current session ID with a new one, and keep the current session information.
+     * The new session id will be stored in the database.
      */
-    public function renewMenuObject()
+    public function regenerateId()
     {
-        $sql = 'UPDATE ' . TBL_SESSIONS . ' SET ses_renew = 4';
-        $this->db->queryPrepared($sql);
+        session_regenerate_id();
+
+        $this->setValue('ses_session_id', session_id());
+        $this->save();
     }
 
     /**
-     * If you call this function than a flag is set so that all other active sessions
-     * know that they should renew the organization object. They will renew it when the
-     * user perform the next action.
+     * This method will reload all stored objects of all active sessions. The session will be
+     * reloaded if the user will open a new page.
      */
-    public function renewOrganizationObject()
+    public function reloadAllSessions()
     {
-        $sql = 'UPDATE ' . TBL_SESSIONS . ' SET ses_renew = 2';
-        $this->db->queryPrepared($sql);
+        $sql = 'UPDATE ' . TBL_SESSIONS . ' SET ses_reload = true ';
+        $this->db->queryPrepared($sql, array(), false); // don't show error because column ses_reload doesn't exist within update from version 3.x
     }
 
     /**
-     * If you call this function than a flag is set so that all other active sessions
-     * know that they should renew their user object. They will renew it when the
-     * user perform the next action.
-     * @param int $userId (optional) if a user id is set then only user objects of this user id will be renewed
+     * This method will reload the session of a specific user. All stored objects of the session will be initialized
+     * and reloaded if the user opens a new page.
+     * @param int $userId Id of the user whose session should be relaoded.
      */
-    public function renewUserObject($userId = 0)
+    public function reload(int $userId)
     {
-        $sqlCondition = '';
-        $queryParams = array();
-        if ($userId > 0)
-        {
-            $sqlCondition = ' WHERE ses_usr_id = ? -- $userId';
-            $queryParams[] = $userId;
-        }
-
-        $sql = 'UPDATE ' . TBL_SESSIONS . '
-                   SET ses_renew = 1
-                       ' . $sqlCondition;
-        $this->db->queryPrepared($sql, $queryParams);
+        $sql = 'UPDATE ' . TBL_SESSIONS . ' SET ses_reload = true
+                 WHERE ses_usr_id = ?  -- $userId';
+        $this->db->queryPrepared($sql, array($userId), false); // don't show error because column ses_reload doesn't exist within update from version 3.x
     }
 
     /**
@@ -373,14 +379,13 @@ class Session extends TableAccess
      * @param bool $updateFingerPrint Default **true**. Will update the creator or editor of the recordset if table has columns like **usr_id_create** or **usr_id_changed**
      * @return bool If an update or insert into the database was done then return true, otherwise false.
      */
-    public function save($updateFingerPrint = true)
+    public function save($updateFingerPrint = true): bool
     {
-        global $gCurrentOrganization;
+        global $gCurrentOrgId;
 
-        if ($this->newRecord)
-        {
+        if ($this->newRecord) {
             // Insert
-            $this->setValue('ses_org_id', (int) $gCurrentOrganization->getValue('org_id'));
+            $this->setValue('ses_org_id', $gCurrentOrgId);
             $this->setValue('ses_begin', DATETIME_NOW);
             // remove the last part of the IP because of privacy (GDPR)
             $ip = preg_replace(array('/\.\d+$/', '/[\da-f]*:[\da-f]*$/'), array('.XXX', 'XXXX:XXXX'), $_SERVER['REMOTE_ADDR']);
@@ -411,8 +416,8 @@ class Session extends TableAccess
         $this->mAutoLogin->save();
 
         // save cookie for autologin
-        $currDateTime = new \DateTime();
-        $oneYearDateInterval = new \DateInterval('P1Y');
+        $currDateTime = new DateTime();
+        $oneYearDateInterval = new DateInterval('P1Y');
         $oneYearAfterDateTime = $currDateTime->add($oneYearDateInterval);
         $timestampExpired = $oneYearAfterDateTime->getTimestamp();
 
@@ -423,52 +428,49 @@ class Session extends TableAccess
      * @param string $name     Name of the cookie.
      * @param string $value    Value of the cookie. If value is "empty string" or "false",
      *                         the cookie will be set as deleted (Expire is set to 1 year in the past).
-     * @param int    $expire   The Unix-Timestamp (Seconds) of the Date/Time when the cookie should expire.
+     * @param int $expire   The Unix-Timestamp (Seconds) of the Date/Time when the cookie should expire.
      *                         With "0" the cookie will expire if the session ends. (When Browser gets closed)
      * @param string $path     Specify the path where the cookie should be available. (Also in sub-paths)
      * @param string $domain   Specify the domain where the cookie should be available. (Set ".example.org" to allow sub-domains)
-     * @param bool   $secure   If "true" cookie is only set if connection is HTTPS. Default is an auto detection.
-     * @param bool   $httpOnly If "true" cookie is accessible only via HTTP.
+     * @param bool|null $secure   If "true" cookie is only set if connection is HTTPS. Default is an auto detection.
+     * @param bool $httpOnly If "true" cookie is accessible only via HTTP.
      *                         Set to "false" to allow access for JavaScript. (Possible XSS security leak)
      * @return bool Returns "true" if the cookie is successfully set.
      */
-    public static function setCookie($name, $value = '', $expire = 0, $path = '', $domain = '', $secure = null, $httpOnly = true)
-    {
+    public static function setCookie(
+        string $name,
+        string $value = '',
+        int $expire = 0,
+        string $path = '',
+        string $domain = '',
+        bool $secure = null,
+        bool $httpOnly = true
+    ): bool {
         global $gLogger, $gSetCookieForDomain;
 
-        if ($path === '')
-        {
-            if($gSetCookieForDomain)
-            {
+        if ($path === '') {
+            if ($gSetCookieForDomain) {
                 $path = '/';
-            }
-            else
-            {
+            } else {
                 $path = ADMIDIO_URL_PATH . '/';
             }
         }
-        if ($domain === '')
-        {
+        if ($domain === '') {
             $domain = DOMAIN;
             // https://www.php.net/manual/en/function.setcookie.php#73107
-            if ($domain === 'localhost')
-            {
+            if ($domain === 'localhost') {
                 $domain = false;
             }
         }
-        if ($secure === null)
-        {
+        if ($secure === null) {
             $secure = HTTPS;
         }
 
         $gLogger->info('Set Cookie!', array('name' => $name, 'value' => $value, 'expire' => $expire, 'path' => $path, 'domain' => $domain, 'secure' => $secure, 'httpOnly' => $httpOnly, 'sameSite' => 'lax'));
 
-        if (PHP_VERSION_ID < 70300)
-        {
+        if (PHP_VERSION_ID < 70300) {
             return setcookie($name, $value, $expire, $path. ';samesite=lax', $domain, $secure, $httpOnly);
-        }
-        else
-        {
+        } else {
             return setcookie($name, $value, array(
                 'expires'  => $expire,
                 'path'     => $path,
@@ -482,25 +484,24 @@ class Session extends TableAccess
 
     /**
      * @param string $cookiePrefix The prefix name of the Cookie.
-     * @param int    $limit        The Lifetime (Seconds) of the cookie when it should expire.
+     * @param int $limit        The Lifetime (Seconds) of the cookie when it should expire.
      *                             With "0" the cookie will expire if the session ends. (When Browser gets closed)
      * @param string $path         Specify the path where the cookie should be available. (Also in sub-paths)
      * @param string $domain       Specify the domain where the cookie should be available. (Set ".example.org" to allow sub-domains)
-     * @param bool   $secure       If "true" cookie is only set if connection is HTTPS. Default is an auto detection.
-     * @param bool   $httpOnly     If "true" cookie is accessible only via HTTP.
+     * @param bool|null $secure       If "true" cookie is only set if connection is HTTPS. Default is an auto detection.
+     * @param bool $httpOnly     If "true" cookie is accessible only via HTTP.
      *                             Set to "false" to allow access for JavaScript. (Possible XSS security leak)
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
-    public static function start($cookiePrefix, $limit = 0, $path = '', $domain = '', $secure = null, $httpOnly = true)
+    public static function start(string $cookiePrefix, int $limit = 0, string $path = '', string $domain = '', bool $secure = null, bool $httpOnly = true)
     {
         global $gLogger, $gSetCookieForDomain;
 
-        if (headers_sent())
-        {
+        if (headers_sent()) {
             $message = 'HTTP-Headers already sent!';
             $gLogger->alert($message);
 
-            throw new \RuntimeException($message);
+            throw new RuntimeException($message);
         }
 
         $sessionName = $cookiePrefix . '_SESSION_ID';
@@ -508,40 +509,30 @@ class Session extends TableAccess
         // Set the cookie name
         session_name($sessionName);
 
-        if ($path === '')
-        {
-            if ($gSetCookieForDomain)
-            {
+        if ($path === '') {
+            if ($gSetCookieForDomain) {
                 $path = '/';
-            }
-            else
-            {
+            } else {
                 $path = ADMIDIO_URL_PATH . '/';
             }
         }
 
-        if ($domain === '')
-        {
+        if ($domain === '') {
             $domain = DOMAIN;
 
             // TODO: Test if this is necessary
             // https://www.php.net/manual/en/function.setcookie.php#73107
-            if ($domain === 'localhost')
-            {
+            if ($domain === 'localhost') {
                 $domain = false;
             }
         }
-        if ($secure === null)
-        {
+        if ($secure === null) {
             $secure = HTTPS;
         }
 
-        if (PHP_VERSION_ID < 70300)
-        {
+        if (PHP_VERSION_ID < 70300) {
             session_set_cookie_params($limit, $path. ';samesite=lax', $domain, $secure, $httpOnly);
-        }
-        else
-        {
+        } else {
             session_set_cookie_params(array(
                 'lifetime' => $limit,
                 'path'     => $path,
@@ -552,8 +543,7 @@ class Session extends TableAccess
             ));
         }
 
-        if (session_status() === PHP_SESSION_ACTIVE)
-        {
+        if (session_status() === PHP_SESSION_ACTIVE) {
             $gLogger->notice('Session is already started!', array('sessionId' => session_id()));
         }
 
@@ -566,11 +556,13 @@ class Session extends TableAccess
     /**
      * Deletes all sessions in table admSessions that are inactive since **$maxInactiveTime** minutes..
      * @param int $maxInactiveMinutes Time in Minutes after that a session will be deleted.
+     * @throws Exception
+     * @throws Exception
      */
-    public function tableCleanup($maxInactiveMinutes = 30)
+    public function tableCleanup(int $maxInactiveMinutes = 30)
     {
-        $now = new \DateTime();
-        $minutesBack = new \DateInterval('PT' . $maxInactiveMinutes . 'M');
+        $now = new DateTime();
+        $minutesBack = new DateInterval('PT' . $maxInactiveMinutes . 'M');
         $timestamp = $now->sub($minutesBack)->format('Y-m-d H:i:s');
 
         $sql = 'DELETE FROM '.TBL_SESSIONS.'

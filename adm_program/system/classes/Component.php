@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -57,21 +57,34 @@ class Component extends TableAccess
         global $gLogger;
 
         $dbVersion = $this->getValue('com_version');
-        if ($this->getValue('com_beta') > 0)
-        {
+        if ($this->getValue('com_beta') > 0) {
             $dbVersion .= '-Beta.' . $this->getValue('com_beta');
         }
 
         $filesystemVersion = ADMIDIO_VERSION;
-        if (ADMIDIO_VERSION_BETA > 0)
-        {
+        if (ADMIDIO_VERSION_BETA > 0) {
             $filesystemVersion .= '-Beta.' . ADMIDIO_VERSION_BETA;
+        }
+
+        if ($this->getValue('com_update_completed') === '') {
+            $errorMessage = 'The update to version ' . $filesystemVersion . ' must be done!<br />
+                The last update step was step ' . $this->getValue('com_update_step') .
+                ' of version ' . $dbVersion . '.';
+            $gLogger->warning($errorMessage);
+
+            throw new AdmException($errorMessage);
+        } elseif ($this->getValue('com_update_completed') !== true) {
+            $errorMessage = 'The update to version ' . $filesystemVersion . ' was not successfully finished!<br />
+                The last update step that was successfully performed was step ' . $this->getValue('com_update_step') .
+                ' of version ' . $dbVersion . '.';
+            $gLogger->warning($errorMessage);
+
+            throw new AdmException($errorMessage);
         }
 
         $returnCode = version_compare($dbVersion, $filesystemVersion);
 
-        if ($returnCode === -1) // database has minor version
-        {
+        if ($returnCode === -1) { // database has minor version
             $gLogger->warning(
                 'UPDATE: Database-Version is lower than the filesystem!',
                 array('versionDB' => $dbVersion, 'versionFileSystem' => $filesystemVersion)
@@ -80,8 +93,7 @@ class Component extends TableAccess
             throw new AdmException('SYS_DATABASE_VERSION_INVALID', array($dbVersion, ADMIDIO_VERSION_TEXT,
                                    '<a href="' . ADMIDIO_URL . FOLDER_INSTALLATION . '/update.php">', '</a>'));
         }
-        if ($returnCode === 1) // filesystem has minor version
-        {
+        if ($returnCode === 1) { // filesystem has minor version
             $gLogger->warning(
                 'UPDATE: Filesystem-Version is lower than the database!',
                 array('versionDB' => $dbVersion, 'versionFileSystem' => $filesystemVersion)
@@ -104,76 +116,70 @@ class Component extends TableAccess
     {
         global $gValidLogin, $gCurrentUser, $gSettingsManager;
 
-        if(self::isVisible($componentName))
-        {
-            switch($componentName)
-            {
+        if (self::isVisible($componentName)) {
+            switch ($componentName) {
                 case 'ANNOUNCEMENTS':
-                    if($gCurrentUser->editAnnouncements())
-                    {
+                    if ($gCurrentUser->editAnnouncements()) {
+                        return true;
+                    }
+                    break;
+
+                case 'CATEGORY-REPORT':
+                    if ($gCurrentUser->checkRolesRight('rol_assign_roles')) {
                         return true;
                     }
                     break;
 
                 case 'DATES':
-                    if($gCurrentUser->editDates())
-                    {
+                    if ($gCurrentUser->editDates()) {
                         return true;
                     }
                     break;
 
                 case 'DOCUMENTS-FILES':
-                    if($gCurrentUser->adminDocumentsFiles())
-                    {
+                    if ($gCurrentUser->adminDocumentsFiles()) {
                         return true;
                     }
                     break;
 
                 case 'GUESTBOOK':
-                    if($gCurrentUser->editGuestbookRight())
-                    {
+                    if ($gCurrentUser->editGuestbookRight()) {
                         return true;
                     }
                     break;
 
                 case 'LINKS':
-                    if($gCurrentUser->editWeblinksRight())
-                    {
+                    if ($gCurrentUser->editWeblinksRight()) {
                         return true;
                     }
                     break;
 
                 case 'GROUPS-ROLES':
-                    if($gCurrentUser->manageRoles())
-                    {
+                    if ($gCurrentUser->manageRoles()) {
                         return true;
                     }
                     break;
 
                 case 'MEMBERS':
-                    if($gCurrentUser->editUsers())
-                    {
+                    if ($gCurrentUser->editUsers()) {
                         return true;
                     }
                     break;
 
                 case 'PHOTOS':
-                    if($gCurrentUser->editPhotoRight())
-                    {
+                    if ($gCurrentUser->editPhotoRight()) {
                         return true;
                     }
                     break;
 
                 case 'PROFILE':
-                    if($gCurrentUser->hasRightEditProfile($gCurrentUser))
-                    {
+                    if ($gCurrentUser->hasRightEditProfile($gCurrentUser)) {
                         return true;
                     }
                     break;
 
                 case 'REGISTRATION':
-                    if($gCurrentUser->approveUsers())
-                    {
+                    if ($gCurrentUser->approveUsers()) {
                         return true;
                     }
                     break;
@@ -185,8 +191,7 @@ class Component extends TableAccess
                 case 'MESSAGES': // fallthrough
                 case 'PREFERENCES': // fallthrough
                 case 'ROOMS':
-                    if($gCurrentUser->isAdministrator())
-                    {
+                    if ($gCurrentUser->isAdministrator()) {
                         return true;
                     }
                     break;
@@ -208,95 +213,87 @@ class Component extends TableAccess
     {
         global $gValidLogin, $gCurrentUser, $gSettingsManager;
 
-        switch($componentName)
-        {
+        switch ($componentName) {
             case 'CORE':
-                if($gValidLogin)
-                {
+                if ($gValidLogin) {
                     return true;
                 }
                 break;
 
             case 'ANNOUNCEMENTS':
-                if((int) $gSettingsManager->get('enable_announcements_module') === 1
-                || ((int) $gSettingsManager->get('enable_announcements_module') === 2 && $gValidLogin))
-                {
+                if ((int) $gSettingsManager->get('enable_announcements_module') === 1
+                || ((int) $gSettingsManager->get('enable_announcements_module') === 2 && $gValidLogin)) {
+                    return true;
+                }
+                break;
+
+            case 'CATEGORY-REPORT':
+                if ($gCurrentUser->checkRolesRight('rol_assign_roles')) {
                     return true;
                 }
                 break;
 
             case 'DATES':
-                if((int) $gSettingsManager->get('enable_dates_module') === 1
-                || ((int) $gSettingsManager->get('enable_dates_module') === 2 && $gValidLogin))
-                {
+                if ((int) $gSettingsManager->get('enable_dates_module') === 1
+                || ((int) $gSettingsManager->get('enable_dates_module') === 2 && $gValidLogin)) {
                     return true;
                 }
                 break;
 
             case 'DOCUMENTS-FILES':
-                if($gSettingsManager->getBool('documents_files_enable_module'))
-                {
+                if ($gSettingsManager->getBool('documents_files_enable_module')) {
                     return true;
                 }
                 break;
 
             case 'GUESTBOOK':
-                if((int) $gSettingsManager->get('enable_guestbook_module') === 1
-                || ((int) $gSettingsManager->get('enable_guestbook_module') === 2 && $gValidLogin))
-                {
+                if ((int) $gSettingsManager->get('enable_guestbook_module') === 1
+                || ((int) $gSettingsManager->get('enable_guestbook_module') === 2 && $gValidLogin)) {
                     return true;
                 }
                 break;
 
             case 'LINKS':
-                if((int) $gSettingsManager->get('enable_weblinks_module') === 1
-                || ((int) $gSettingsManager->get('enable_weblinks_module') === 2 && $gValidLogin))
-                {
+                if ((int) $gSettingsManager->get('enable_weblinks_module') === 1
+                || ((int) $gSettingsManager->get('enable_weblinks_module') === 2 && $gValidLogin)) {
                     return true;
                 }
                 break;
 
             case 'GROUPS-ROLES':
-                if($gSettingsManager->getBool('groups_roles_enable_module') && $gValidLogin)
-                {
+                if ($gSettingsManager->getBool('groups_roles_enable_module') && $gValidLogin) {
                     return true;
                 }
                 break;
 
             case 'MEMBERS':
-                if($gCurrentUser->editUsers())
-                {
+                if ($gCurrentUser->editUsers()) {
                     return true;
                 }
                 break;
 
             case 'MESSAGES':
                 if ($gSettingsManager->getBool('enable_mail_module')
-                || ($gSettingsManager->getBool('enable_pm_module') && $gValidLogin)
-                || $gSettingsManager->getBool('enable_chat_module') && $gValidLogin)
-                {
+                || ($gSettingsManager->getBool('enable_pm_module') && $gValidLogin)) {
                     return true;
                 }
                 break;
 
             case 'PHOTOS':
-                if((int) $gSettingsManager->get('enable_photo_module') === 1
-                || ((int) $gSettingsManager->get('enable_photo_module') === 2 && $gValidLogin))
-                {
+                if ((int) $gSettingsManager->get('enable_photo_module') === 1
+                || ((int) $gSettingsManager->get('enable_photo_module') === 2 && $gValidLogin)) {
                     return true;
                 }
                 break;
 
             case 'PROFILE':
-                if($gCurrentUser->hasRightViewProfile($gCurrentUser))
-                {
+                if ($gCurrentUser->hasRightViewProfile($gCurrentUser)) {
                     return true;
                 }
                 break;
 
             case 'REGISTRATION':
-                if($gSettingsManager->getBool('registration_enable_module') && $gCurrentUser->approveUsers())
-                {
+                if ($gSettingsManager->getBool('registration_enable_module') && $gCurrentUser->approveUsers()) {
                     return true;
                 }
                 break;
@@ -306,8 +303,7 @@ class Component extends TableAccess
             case 'MENU': // fallthrough
             case 'PREFERENCES': // fallthrough
             case 'ROOMS':
-                if($gCurrentUser->isAdministrator())
-                {
+                if ($gCurrentUser->isAdministrator()) {
                     return true;
                 }
                 break;

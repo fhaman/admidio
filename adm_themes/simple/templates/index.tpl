@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- (c) 2004 - 2020 The Admidio Team - https://www.admidio.org -->
-
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+    <!-- (c) 2004 - 2023 The Admidio Team - https://www.admidio.org -->
+
     <link rel="shortcut icon" type="image/x-icon" href="{$urlTheme}/images/favicon.ico" />
-    <link rel="icon" type="image/png" href="{$urlTheme}/images/favicon-32x32.png" sizes="32x32" />
-    <link rel="icon" type="image/png" href="{$urlTheme}/images/favicon-16x16.png" sizes="16x16" />
     <link rel="apple-touch-icon" type="image/png" href="{$urlTheme}/images/apple-touch-icon.png" sizes="180x180" />
 
     <title>{$title}</title>
@@ -112,34 +109,49 @@
                     <i class="fas fa-bars fa-fw"></i>
                 </button>
                 </div>
-                {$menuSidebar}
+                {$menuSidebar->getHtml()}
             </div>
 
-            <div id="content" class="col-12 col-md-9 col-xl-10 admidio-content" role="main">
-                <div class="admidio-content-header">
-                    <h1 class="admidio-module-headline">{$headline}</h1>
+            <div class="admidio-content-col col-12 col-md-9 col-xl-10">
+                <nav class="admidio-breadcrumb" aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        {foreach $navigationStack as $navElementArray}
+                            {if !empty($navElementArray['icon'])}
+                                {$breadcrumbIcon="<i class=\"admidio-icon-chain fas `$navElementArray['icon']`\"></i>"}
+                            {else}
+                                {$breadcrumbIcon=''}
+                            {/if}
+                            {if $navElementArray@iteration == $navElementArray@last}
+                                <li class="breadcrumb-item active">{$breadcrumbIcon}{$navElementArray['text']}</li>
+                            {else}
+                                <li class="breadcrumb-item"><a href="{$navElementArray['url']}">{$breadcrumbIcon}{$navElementArray['text']}</a></li>
+                            {/if}
+                        {/foreach}
+                    </ol>
+                </nav>
 
-                    {if $hasPreviousUrl}
-                        <!-- Add link to previous page -->
-                        <a class="" href="{$urlAdmidio}/adm_program/system/back.php"><i class="fas fa-arrow-circle-left fa-fw"></i> {$l10n->get('SYS_BACK')}</a>
+                <div id="content" class="admidio-content" role="main">
+                    <div class="admidio-content-header">
+                        <h1 class="admidio-module-headline">{$headline}</h1>
+                        {$menuFunctions->getHtml()}
+                    </div>
+
+                    {* The main content of the page that will be generated through the Admidio scripts *}
+                    {$content}
+
+                    {* Additional template file that will be loaded if the file was set through $page->setTemplateFile() *}
+                    {if $templateFile != ''}
+                        {include file=$templateFile}
                     {/if}
-                </div>
 
-                {* The main content of the page that will be generated through the Admidio scripts *}
-                {$content}
-
-                {* Additional template file that will be loaded if the file was set through $page->setTemplateFile() *}
-                {if $templateFile != ''}
-                    {include file=$templateFile}
-                {/if}
-
-                <div id="imprint">&copy; 2004 - 2021&nbsp;&nbsp;<a href="https://www.admidio.org">Admidio</a>
-                    {if $urlImprint != ''}
-                        &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlImprint}">{$l10n->get('SYS_IMPRINT')}</a>
-                    {/if}
-                    {if $urlDataProtection != ''}
-                        &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlDataProtection}">{$l10n->get('SYS_DATA_PROTECTION')}</a>
-                    {/if}
+                    <div id="imprint">Powered by <a href="https://www.admidio.org">Admidio</a> &copy; Admidio Team
+                        {if $urlImprint != ''}
+                            &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlImprint}">{$l10n->get('SYS_IMPRINT')}</a>
+                        {/if}
+                        {if $urlDataProtection != ''}
+                            &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlDataProtection}">{$l10n->get('SYS_DATA_PROTECTION')}</a>
+                        {/if}
+                    </div>
                 </div>
             </div>
         </div>

@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Photoresizer
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -12,145 +12,115 @@
 /******************************************************************************
  * Parameters:
  *
- * pho_id    : Id des Albums, aus dem das Bild kommen soll
- * photo_nr  : Nummer des Bildes, das angezeigt werden soll
- * max_width : maximale Breite auf die das Bild skaliert werden kann
- * max_height: maximale Hoehe auf die das Bild skaliert werden kann
- * thumb     : ist thumb === true wird ein Thumbnail in der Größe der
- *             Voreinstellung zurückgegeben
+ * photo_uuid : UUID of the album from which the image should be shown
+ * photo_nr   : Number of the image to be displayed
+ * max_width  : maximum width to which the image can be scaled,
+ *              if not set, the default size is taken
+ * max_height : maximum height to which the image can be scaled,
+ *              if not set, the default size is taken
+ * thumb      : If is set to true a thumbnail in the size of the default
+ *              size is returned
  *
  *****************************************************************************/
 
 require_once(__DIR__ . '/../../system/common.php');
 
 // Initialize and check the parameters
-$getPhotoId   = admFuncVariableIsValid($_GET, 'pho_id',     'int', array('requireValue' => true));
-$getPhotoNr   = admFuncVariableIsValid($_GET, 'photo_nr',   'int');
-$getMaxWidth  = admFuncVariableIsValid($_GET, 'max_width',  'int', array('defaultValue' => 0));
+$getPhotoUuid = admFuncVariableIsValid($_GET, 'photo_uuid', 'string');
+$getPhotoNr   = admFuncVariableIsValid($_GET, 'photo_nr', 'int');
+$getMaxWidth  = admFuncVariableIsValid($_GET, 'max_width', 'int', array('defaultValue' => 0));
 $getMaxHeight = admFuncVariableIsValid($_GET, 'max_height', 'int', array('defaultValue' => 0));
-$getThumbnail = admFuncVariableIsValid($_GET, 'thumb',      'bool');
+$getThumbnail = admFuncVariableIsValid($_GET, 'thumb', 'bool');
+$image        = null;
 
 // check if the module is enabled and disallow access if it's disabled
-if ((int) $gSettingsManager->get('enable_photo_module') === 0)
-{
+if ((int) $gSettingsManager->get('enable_photo_module') === 0) {
     $gMessage->show($gL10n->get('SYS_MODULE_DISABLED'));
-    // => EXIT
-}
-elseif ((int) $gSettingsManager->get('enable_photo_module') === 2)
-{
-    // nur eingeloggte Benutzer duerfen auf das Modul zugreifen
+// => EXIT
+} elseif ((int) $gSettingsManager->get('enable_photo_module') === 2) {
+    // only logged in users can access the module
     require(__DIR__ . '/../../system/login_valid.php');
 }
 
-// lokale Variablen initialisieren
-$image = null;
-
 // read album data out of session or database
-if (isset($_SESSION['photo_album']) && (int) $_SESSION['photo_album']->getValue('pho_id') === $getPhotoId)
-{
+if (isset($_SESSION['photo_album']) && (int) $_SESSION['photo_album']->getValue('pho_uuid') === $getPhotoUuid) {
     $photoAlbum =& $_SESSION['photo_album'];
-}
-else
-{
-    $photoAlbum = new TablePhotos($gDb, $getPhotoId);
+} else {
+    $photoAlbum = new TablePhotos($gDb);
+    $photoAlbum->readDataByUuid($getPhotoUuid);
     $_SESSION['photo_album'] = $photoAlbum;
 }
 
 // check if the current user could view this photo album
-if(!$photoAlbum->isVisible())
-{
+if (!$photoAlbum->isVisible()) {
     $gMessage->show($gL10n->get('SYS_NO_RIGHTS'));
     // => EXIT
 }
 
-// Bildpfad zusammensetzten
-$albumFolder = ADMIDIO_PATH . FOLDER_DATA . '/photos/' . $photoAlbum->getValue('pho_begin', 'Y-m-d') . '_' . $getPhotoId;
+// compose image path
+$albumFolder  = ADMIDIO_PATH . FOLDER_DATA . '/photos/' . $photoAlbum->getValue('pho_begin', 'Y-m-d') . '_' . $photoAlbum->getValue('pho_id');
 $picPath      = $albumFolder . '/' . $getPhotoNr . '.jpg';
 $picThumbPath = $albumFolder . '/thumbnails/' . $getPhotoNr . '.jpg';
 
-// im Debug-Modus den ermittelten Bildpfad ausgeben
+// output the determined image path in debug mode
 $gLogger->info('ImagePath: ' . $picPath);
 
-if ($getThumbnail)
-{
-    if ($getPhotoNr > 0)
-    {
+if ($getThumbnail) {
+    if ($getPhotoNr > 0) {
         $thumbLength = null;
 
-        // Wenn Thumbnail existiert laengere Seite ermitteln
-        if (is_file($picThumbPath))
-        {
+        // If thumbnail exists detect longer page
+        if (is_file($picThumbPath)) {
             $imageProperties = getimagesize($picThumbPath);
-            if (is_array($imageProperties))
-            {
+            if (is_array($imageProperties)) {
                 $thumbLength = max($imageProperties[0], $imageProperties[1]);
             }
         }
 
-        // Nachsehen ob Bild als Thumbnail in entsprechender Groesse hinterlegt ist
-        // Wenn nicht anlegen
-        if (!is_file($picThumbPath) || $thumbLength !== $gSettingsManager->getInt('photo_thumbs_scale'))
-        {
-            try
-            {
+        // Check whether the image is stored as a thumbnail in the appropriate size, if not, create it.
+        if (!is_file($picThumbPath) || $thumbLength !== $gSettingsManager->getInt('photo_thumbs_scale')) {
+            try {
                 // If thumnail directory does not exist, create one
                 FileSystemUtils::createDirectoryIfNotExists($albumFolder . '/thumbnails');
-            }
-            catch (\RuntimeException $exception)
-            {
+            } catch (\RuntimeException $exception) {
                 $gLogger->error('Could not create directory!', array('directoryPath' => $albumFolder . '/thumbnails'));
                 // TODO
             }
 
-            // nun das Thumbnail anlegen
+            // now create thumbnail
             $image = new Image($picPath);
             $image->scaleLargerSide($gSettingsManager->getInt('photo_thumbs_scale'));
             $image->copyToFile(null, $picThumbPath);
-        }
-        else
-        {
+        } else {
             header('Content-Type: image/jpeg');
             readfile($picThumbPath);
         }
-    }
-    else
-    {
-        // kein Bild uebergeben, dann NoPix anzeigen
+    } else {
+        // if no image was passed, then display NoPix
         $image = new Image(THEME_PATH . '/images/no_photo_found.png');
         $image->scaleLargerSide($gSettingsManager->getInt('photo_thumbs_scale'));
     }
-}
-else
-{
-    if (!is_file($picPath))
-    {
+} else {
+    if (!is_file($picPath)) {
         $picPath = THEME_PATH . '/images/no_photo_found.png';
     }
 
     // read image from filesystem and scale it if necessary
     $image = new Image($picPath);
-    if($getMaxWidth > 0 || $getMaxHeight > 0)
-    {
+    if ($getMaxWidth > 0 || $getMaxHeight > 0) {
         $image->scale($getMaxWidth, $getMaxHeight);
-    }
-    else
-    {
+    } else {
         // image should not be scaled so read the size of the image
         list($getMaxWidth, $getMaxHeight) = $image->getImageSize();
     }
 }
 
-if ($image !== null)
-{
+if ($image !== null) {
     // insert copyright text into photo if photo size is larger than 200px
-    if (($getMaxWidth > 200) && $gSettingsManager->getString('photo_image_text') !== '')
-    {
-        if ($gSettingsManager->getInt('photo_image_text_size') > 0)
-        {
+    if (($getMaxWidth > 200) && $gSettingsManager->getString('photo_image_text') !== '') {
+        if ($gSettingsManager->getInt('photo_image_text_size') > 0) {
             $fontSize = $getMaxWidth / $gSettingsManager->getInt('photo_image_text_size');
-        }
-        else
-        {
+        } else {
             $fontSize = $getMaxWidth / 40;
         }
         $imageSize = $image->getImageSize();
@@ -160,19 +130,16 @@ if ($image !== null)
         $fontTtf = ADMIDIO_PATH . '/adm_program/system/fonts/mrphone.ttf';
 
         // show name of photograph if set otherwise show name of organization
-        if(strlen($photoAlbum->getValue('pho_photographers')) > 0)
-        {
-            $text = '© ' . $photoAlbum->getValue('pho_photographers');
-        }
-        else
-        {
+        if ((string) $photoAlbum->getValue('pho_photographers') !== '') {
+            $text = '© ' . $photoAlbum->getValue('pho_photographers', 'database');
+        } else {
             $text = $gSettingsManager->getString('photo_image_text');
         }
 
-        imagettftext($image->getImageResource(), $fontSize, 0, $fontX, $fontY, $fontColor, $fontTtf, $text);
+        imagettftext($image->getImageResource(), $fontSize, 0, (int) $fontX, (int) $fontY, $fontColor, $fontTtf, $text);
     }
 
-    // Rueckgabe des neuen Bildes
+    // Return of the new image
     header('Content-Type: '. $image->getMimeType());
     $image->copyToBrowser();
     $image->delete();

@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_files
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -24,58 +24,6 @@
 class TableFile extends TableAccess
 {
     /**
-     * @var array<string,string> Array with file extensions and the best Font Awesome icon that should be used
-     */
-    protected $iconFileExtension = array(
-        'bmp'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/bmp', 'viewable' => true),
-        'gif'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/gif', 'viewable' => true),
-        'jpg'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/jpeg', 'viewable' => true),
-        'jpeg' => array('icon' => 'fa-file-image', 'mime-type' => 'image/jpeg', 'viewable' => true),
-        'png'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/png', 'viewable' => true),
-        'svg'  => array('icon' => 'fa-file-image', 'mime-type' => 'image/svg+xml', 'viewable' => true),
-        'tiff' => array('icon' => 'fa-file-image', 'mime-type' => 'image/tiff', 'viewable' => true),
-        'doc'  => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
-        'docx' => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
-        'dot'  => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
-        'dotx' => array('icon' => 'fa-file-word', 'mime-type' => 'application/msword', 'viewable' => false),
-        'odt'  => array('icon' => 'fa-file-word', 'mime-type' => 'application/vnd.oasis.opendocument.text', 'viewable' => false),
-        'csv'  => array('icon' => 'fa-file-excel', 'mime-type' => 'text/comma-separated-values', 'viewable' => false),
-        'xls'  => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
-        'xlsx' => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
-        'xlt'  => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
-        'xltx' => array('icon' => 'fa-file-excel', 'mime-type' => 'application/msexcel', 'viewable' => false),
-        'ods'  => array('icon' => 'fa-file-excel', 'mime-type' => 'application/vnd.oasis.opendocument.spreadsheet', 'viewable' => false),
-        'pps'  => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
-        'ppsx' => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
-        'ppt'  => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
-        'pptx' => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/mspowerpoint', 'viewable' => false),
-        'odp'  => array('icon' => 'fa-file-powerpoint', 'mime-type' => 'application/vnd.oasis.opendocument.presentation', 'viewable' => false),
-        'css'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/css', 'viewable' => true),
-        'log'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
-        'md'   => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
-        'rtf'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/rtf', 'viewable' => false),
-        'sql'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
-        'txt'  => array('icon' => 'fa-file-alt', 'mime-type' => 'text/plain', 'viewable' => true),
-        'pdf'  => array('icon' => 'fa-file-pdf', 'mime-type' => 'application/pdf', 'viewable' => true),
-        'gz'   => array('icon' => 'fa-file-archive', 'mime-type' => 'application/gzip', 'viewable' => false),
-        'tar'  => array('icon' => 'fa-file-archive', 'mime-type' => 'application/x-tar', 'viewable' => false),
-        'zip'  => array('icon' => 'fa-file-archive', 'mime-type' => 'application/zip', 'viewable' => false),
-        'avi'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/x-msvideo', 'viewable' => true),
-        'flv'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/x-flv', 'viewable' => true),
-        'mov'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/quicktime', 'viewable' => true),
-        'mp4'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/mp4', 'viewable' => true),
-        'mpeg' => array('icon' => 'fa-file-video', 'mime-type' => 'video/mpeg', 'viewable' => true),
-        'mpg'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/mpeg', 'viewable' => true),
-        'webm' => array('icon' => 'fa-file-video', 'mime-type' => 'video/webm', 'viewable' => true),
-        'wmv'  => array('icon' => 'fa-file-video', 'mime-type' => 'video/x-ms-wmv', 'viewable' => true),
-        'aac'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/aac', 'viewable' => true),
-        'midi' => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/x-midi', 'viewable' => true),
-        'mp3'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/mpeg3', 'viewable' => true),
-        'wav'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/x-midi', 'viewable' => true),
-        'wma'  => array('icon' => 'fa-file-audio', 'mime-type' => 'audio/x-ms-wma', 'viewable' => true)
-    );
-
-    /**
      * Constructor that will create an object of a recordset of the table adm_files.
      * If the id is set than the specific files will be loaded.
      * @param Database $database Object of the class Database. This should be the default global object **$gDb**.
@@ -90,6 +38,16 @@ class TableFile extends TableAccess
     }
 
     /**
+     * Check if the file extension of the current file format is allowed for upload and the
+     * documents and files module.
+     * @return bool Return true if the file extension is allowed to be used within Admidio.
+     */
+    public function allowedFileExtension(): bool
+    {
+        return FileSystemUtils::allowedFileExtension($this->getValue('fil_name', 'database'));
+    }
+
+    /**
      * Deletes the selected record of the table and the associated file in the file system.
      * After that the class will be initialize.
      * @return bool **true** if no error occurred
@@ -98,12 +56,9 @@ class TableFile extends TableAccess
     {
         global $gLogger;
 
-        try
-        {
+        try {
             FileSystemUtils::deleteFileIfExists($this->getFullFilePath());
-        }
-        catch (\RuntimeException $exception)
-        {
+        } catch (\RuntimeException $exception) {
             $gLogger->error('Could not delete file!', array('filePath' => $this->getFullFilePath()));
             // TODO
         }
@@ -114,20 +69,20 @@ class TableFile extends TableAccess
 
     /**
      * Gets the absolute path of the folder (with folder-name)
-     * @return string
+     * @return string Returns the folder path of the current file.
      */
     public function getFullFolderPath()
     {
-        return ADMIDIO_PATH . $this->getValue('fol_path') . '/' . $this->getValue('fol_name');
+        return ADMIDIO_PATH . $this->getValue('fol_path', 'database') . '/' . $this->getValue('fol_name', 'database');
     }
 
     /**
      * Gets the absolute path of the file
-     * @return string Absolute pth of the file
+     * @return string Returns the folder path with the file name of the current file.
      */
     public function getFullFilePath()
     {
-        return $this->getFullFolderPath() . '/' . $this->getValue('fil_name');
+        return $this->getFullFolderPath() . '/' . $this->getValue('fil_name', 'database');
     }
 
     /**
@@ -142,47 +97,42 @@ class TableFile extends TableAccess
     /**
      * Reads the file recordset from database table **adm_folders** and throws an AdmException
      * if the user has no right to see the corresponding folder or the file id doesn't exists.
-     * @param int $fileId The id of the file.
+     * @param string $fileUuid The UUID of the file.
      * @throws AdmException SYS_FOLDER_NO_RIGHTS
      *                      SYS_INVALID_PAGE_VIEW
      * @return true Returns **true** if everything is ok otherwise an AdmException is thrown.
      */
-    public function getFileForDownload($fileId)
+    public function getFileForDownload($fileUuid)
     {
         global $gCurrentUser;
 
-        $this->readDataById($fileId);
+        $this->readDataByUuid($fileUuid);
 
         // Check if a dataset is found
-        if ((int) $this->getValue('fil_id') === 0)
-        {
+        if ((int) $this->getValue('fil_id') === 0) {
             throw new AdmException('SYS_INVALID_PAGE_VIEW');
         }
 
         // If current user has download-admin-rights => allow
-        if ($gCurrentUser->adminDocumentsFiles())
-        {
+        if ($gCurrentUser->adminDocumentsFiles()) {
             return true;
         }
 
         // If file is locked (and no download-admin-rights) => throw exception
-        if ($this->getValue('fil_locked'))
-        {
+        if ($this->getValue('fil_locked')) {
             $this->clear();
             throw new AdmException('SYS_FOLDER_NO_RIGHTS');
         }
 
         // If folder is public (and file is not locked) => allow
-        if ($this->getValue('fol_public'))
-        {
+        if ($this->getValue('fol_public')) {
             return true;
         }
 
         // check if user has a membership in a role that is assigned to the current folder
         $folderViewRolesObject = new RolesRights($this->db, 'folder_view', (int) $this->getValue('fol_id'));
 
-        if ($folderViewRolesObject->hasRight($gCurrentUser->getRoleMemberships()))
-        {
+        if ($folderViewRolesObject->hasRight($gCurrentUser->getRoleMemberships())) {
             return true;
         }
 
@@ -196,14 +146,7 @@ class TableFile extends TableAccess
      */
     public function getFontAwesomeIcon()
     {
-        $iconFile = 'fa-file';
-
-        if(array_key_exists($this->getFileExtension(), $this->iconFileExtension))
-        {
-            $iconFile = $this->iconFileExtension[$this->getFileExtension()]['icon'];
-        }
-
-        return $iconFile;
+        return FileSystemUtils::getFileFontAwesomeIcon($this->getValue('fil_name'));
     }
 
     /**
@@ -212,14 +155,7 @@ class TableFile extends TableAccess
      */
     public function getMimeType()
     {
-        $mimeType = 'application/octet-stream';
-
-        if(array_key_exists($this->getFileExtension(), $this->iconFileExtension))
-        {
-            $mimeType = $this->iconFileExtension[$this->getFileExtension()]['mime-type'];
-        }
-
-        return $mimeType;
+        return FileSystemUtils::getFileMimeType($this->getValue('fil_name'));
     }
 
     /**
@@ -235,8 +171,7 @@ class TableFile extends TableAccess
         $value = parent::getValue($columnName, $format);
 
         // getValue transforms & to html chars. This must be undone.
-        if ($columnName === 'fil_name')
-        {
+        if ($columnName === 'fil_name') {
             $value = htmlspecialchars_decode($value);
         }
 
@@ -249,14 +184,7 @@ class TableFile extends TableAccess
      */
     public function isViewableInBrowser()
     {
-        $returnCode = false;
-
-        if(array_key_exists($this->getFileExtension(), $this->iconFileExtension))
-        {
-            $returnCode = $this->iconFileExtension[$this->getFileExtension()]['viewable'];
-        }
-
-        return $returnCode;
+        return FileSystemUtils::isViewableFileInBrowser($this->getValue('fil_name'));
     }
 
     /**
@@ -269,12 +197,9 @@ class TableFile extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentUser;
-
-        if ($this->newRecord)
-        {
+        if ($this->newRecord) {
             $this->setValue('fil_timestamp', DATETIME_NOW);
-            $this->setValue('fil_usr_id', (int) $gCurrentUser->getValue('usr_id'));
+            $this->setValue('fil_usr_id', $GLOBALS['gCurrentUserId']);
         }
 
         return parent::save($updateFingerPrint);

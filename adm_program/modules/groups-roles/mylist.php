@@ -3,15 +3,14 @@
  ***********************************************************************************************
  * Create a custom list
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  *
  * Parameters:
  *
- * lst_id : Id of the list configuration that should be shown
- * rol_id : (Optional) If a role id is set then the form field will be preassigned.
- * rol_ids: (Optional) Id of the role or an integer array of all role ids whose members should be shown
+ * list_uuid    : UUID of the list configuration that should be shown
+ * rol_ids      : (Optional) ID of the role or an integer array of all role ids whose members should be shown
  * active_role  : true  - (Default) List only active roles
  *                false - List only deactivated roles
  * show_members : 0 - (Default) show active members of role
@@ -23,83 +22,75 @@ require_once(__DIR__ . '/../../system/common.php');
 require(__DIR__ . '/../../system/login_valid.php');
 
 // Initialize and check the parameters
-$getListId      = admFuncVariableIsValid($_GET, 'lst_id',       'int');
-$getRoleIds     = admFuncVariableIsValid($_GET, 'rol_ids',      'string'); // could be int or int[], so string is necessary
-$getActiveRole  = admFuncVariableIsValid($_GET, 'active_role',  'bool', array('defaultValue' => true));
+$getListUuid    = admFuncVariableIsValid($_GET, 'list_uuid', 'string');
+$getRoleIds     = admFuncVariableIsValid($_GET, 'rol_ids', 'string'); // could be int or int[], so string is necessary
+$getActiveRole  = admFuncVariableIsValid($_GET, 'active_role', 'bool', array('defaultValue' => true));
 $getShowMembers = admFuncVariableIsValid($_GET, 'show_members', 'int');
 
 // check if the module is enabled and disallow access if it's disabled
-if (!$gSettingsManager->getBool('groups_roles_enable_module'))
-{
+if (!$gSettingsManager->getBool('groups_roles_enable_module')
+    || ($gSettingsManager->getInt('groups_roles_edit_lists') === 2 && !$gCurrentUser->checkRolesRight('rol_edit_user')) // users with the right to edit all profiles
+    || ($gSettingsManager->getInt('groups_roles_edit_lists') === 3 && !$gCurrentUser->isAdministrator())) {
     $gMessage->show($gL10n->get('SYS_MODULE_DISABLED'));
     // => EXIT
 }
 
 // only users with the right to assign roles can view inactive roles
-if(!$gCurrentUser->checkRolesRight('rol_assign_roles'))
-{
+if (!$gCurrentUser->checkRolesRight('rol_assign_roles')) {
     $getActiveRole = true;
 }
 
 // set headline of the script
 $headline = $gL10n->get('SYS_CONFIGURATION_LIST');
 
-$gNavigation->addUrl(CURRENT_URL, $headline);
+// add current url to navigation stack if last url was not the same page
+if (!str_contains($gNavigation->getUrl(), 'mylist.php')) {
+    $gNavigation->addUrl(CURRENT_URL, $headline);
+}
 
 $defaultColumnRows   = 6;    // number of columns that should be shown
 $mySqlMaxColumnAlert = '';
 
 // Listenobjekt anlegen
-$list = new ListConfiguration($gDb, $getListId);
+$list = new ListConfiguration($gDb);
+$list->readDataByUuid($getListUuid);
 
-if(isset($_SESSION['mylist_request']))
-{
-    $formValues = $_SESSION['mylist_request'];
+if (isset($_SESSION['mylist_request'])) {
+    $formValues = SecurityUtils::encodeHTML(StringUtils::strStripTags($_SESSION['mylist_request']));
     unset($_SESSION['mylist_request']);
 
-    if(!isset($formValues['cbx_global_configuration']))
-    {
+    if (!isset($formValues['cbx_global_configuration'])) {
         $formValues['cbx_global_configuration'] = 0;
     }
 
-    if(!isset($formValues['sel_roles_ids']))
-    {
+    if (!isset($formValues['sel_roles_ids'])) {
         $formValues['sel_roles_ids'] = 0;
     }
 
-    // falls vorher schon Zeilen fuer Spalten manuell hinzugefuegt wurden, muessen diese nun direkt angelegt werden
-    for($i = $defaultColumnRows + 1; $i > 0; ++$i)
-    {
-        if(isset($formValues['column'.$i]))
-        {
+    // if rows for columns have been added manually before, they must now be created directly
+    for ($i = $defaultColumnRows + 1; $i > 0; ++$i) {
+        if (isset($formValues['column'.$i])) {
             ++$defaultColumnRows;
-        }
-        else
-        {
+        } else {
             $i = -1;
         }
     }
-}
-else
-{
-    $formValues['sel_select_configuration'] = $getListId;
+} else {
+    $formValues['sel_select_configuration'] = $getListUuid;
     $formValues['cbx_global_configuration'] = $list->getValue('lst_global');
     $formValues['sel_roles_ids']            = $getRoleIds;
 
     // if a saved configuration was loaded then add columns to formValues array
-    if($getListId > 0)
-    {
+    if ($getListUuid !== '') {
         $defaultColumnRows = $list->countColumns();
 
-        for($number = 1, $max = $list->countColumns(); $number <= $max; ++$number)
-        {
+        for ($number = 1, $max = $list->countColumns(); $number <= $max; ++$number) {
             $column = $list->getColumnObject($number);
-            if($column->getValue('lsc_usf_id') > 0)
-            {
-                $formValues['column'. $number] = (int) $column->getValue('lsc_usf_id');
-            }
-            else
-            {
+            $userField = new TableUserField($gDb, $column->getValue('lsc_usf_id'));
+
+            if ($column->getValue('lsc_usf_id') > 0) {
+                $formValues['column'. $number] = $userField->getValue('usf_name_intern');
+            } else {
                 $formValues['column'. $number] = $column->getValue('lsc_special_field');
             }
 
@@ -114,8 +105,7 @@ $page = new HtmlPage('admidio-mylist', $headline);
 
 // within MySql it's only possible to join 61 tables therefore show a message if user
 // want's to join more than 57 columns
-if(DB_ENGINE === Database::PDO_ENGINE_MYSQL)
-{
+if (DB_ENGINE === Database::PDO_ENGINE_MYSQL) {
     $mySqlMaxColumnAlert = '
     if (fieldNumberIntern >= 57) {
         alert("'.$gL10n->get('SYS_NO_MORE_COLUMN').'");
@@ -124,13 +114,13 @@ if(DB_ENGINE === Database::PDO_ENGINE_MYSQL)
 }
 
 $javascriptCode = '
-    var listId            = '.$getListId.';
+    var listUuid          = "'.$getListUuid.'";
     var fieldNumberIntern = 0;
     var arrUserFields     = createProfileFieldsArray();
     var arrDefaultFields  = createColumnsArray();
 
     /**
-     * Funktion fuegt eine neue Zeile zum Zuordnen von Spalten fuer die Liste hinzu
+     * Function adds a new line to assign columns for the list
      */
     function addColumn() {
         '.$mySqlMaxColumnAlert.'
@@ -140,7 +130,7 @@ $javascriptCode = '
         var table = document.getElementById("mylist_fields_tbody");
         var newTableRow = table.insertRow(fieldNumberIntern);
         newTableRow.setAttribute("id", "row" + fieldNumberShow)
-        //$(newTableRow).css("display", "none"); // ausgebaut wg. Kompatibilitaetsproblemen im IE8
+        $(newTableRow).css("display", "none");
         var newCellCount = newTableRow.insertCell(-1);
         newCellCount.textContent = (fieldNumberShow) + ". '.$gL10n->get('SYS_COLUMN').' :";
 
@@ -161,24 +151,24 @@ $javascriptCode = '
             // bei einer neuen Liste sind Vorname und Nachname in den ersten Spalten vorbelegt
             if (( (fieldNumberIntern === 0 && arrUserFields[counter]["usf_name_intern"] === "LAST_NAME")
                || (fieldNumberIntern === 1 && arrUserFields[counter]["usf_name_intern"] === "FIRST_NAME"))
-            && listId === 0) {
+            && listUuid === "") {
                 selected = " selected=\"selected\" ";
             }
 
             // bei gespeicherten Listen das entsprechende Profilfeld selektieren
             // und den Feldnamen dem Listenarray hinzufügen
             if (arrDefaultFields[fieldNumberShow]) {
-                if (arrUserFields[counter]["usf_id"] === arrDefaultFields[fieldNumberShow]["usf_id"]) {
+                if (arrUserFields[counter]["usf_name_intern"] === arrDefaultFields[fieldNumberShow]["usf_name_intern"]) {
                     selected = " selected=\"selected\" ";
                     arrDefaultFields[fieldNumberShow]["usf_name"] = arrUserFields[counter]["usf_name"];
                 }
             }
-            htmlCboFields += "<option value=\"" + arrUserFields[counter]["usf_id"] + "\" " + selected + ">" + arrUserFields[counter]["usf_name"] + "</option>";
+            htmlCboFields += "<option value=\"" + arrUserFields[counter]["usf_name_intern"] + "\" " + selected + ">" + arrUserFields[counter]["usf_name"] + "</option>";
         }
         htmlCboFields += "</select>";
         newCellField.innerHTML = htmlCboFields;
 
-        // neue Spalte zur Einstellung der Sortierung
+        // new column for setting the sorting
         var selectAsc  = "";
         var selectDesc = "";
 
@@ -200,7 +190,7 @@ $javascriptCode = '
                 "<option value=\"DESC\" " + selectDesc + ">'.$gL10n->get('SYS_Z_TO_A').'</option>" +
             "</select>";
 
-        // neue Spalte fuer Bedingungen
+        // new column for conditions
         condition = "";
         if (arrDefaultFields[fieldNumberShow]) {
             var fieldName = arrDefaultFields[fieldNumberShow]["usf_name"];
@@ -227,10 +217,8 @@ $javascriptCode = '
         var userFields = [];';
 
 // create a multidimensional array for all columns with the necessary data
-$i = 1;
-$oldCategoryNameIntern = '';
-$posEndOfMasterData = 0;
-$arrParticipientsInformation = array(
+$i = 0;
+$arrParticipantsInformation = array(
     'mem_approved'         => $gL10n->get('SYS_PARTICIPATION_STATUS'),
     'mem_usr_id_change'    => $gL10n->get('SYS_CHANGED_BY'),
     'mem_timestamp_change' => $gL10n->get('SYS_CHANGED_AT'),
@@ -238,25 +226,12 @@ $arrParticipientsInformation = array(
     'mem_count_guests'     => $gL10n->get('SYS_SEAT_AMOUNT')
 );
 
-foreach($gProfileFields->getProfileFields() as $field)
-{
-    // at the end of category basic data save positions for loginname and username
-    // they will be added after profile fields loop
-    if($oldCategoryNameIntern === 'BASIC_DATA' && $field->getValue('cat_name_intern') !== 'BASIC_DATA')
-    {
-        $posEndOfMasterData    = $i;
-        $i                    += 2;
-        $oldCategoryNameIntern = $field->getValue('cat_name_intern');
-    }
-
+foreach ($gProfileFields->getProfileFields() as $field) {
     // add profile field to user field array
-    if($gProfileFields->isVisible($field->getValue('usf_name_intern'), $gCurrentUser->editUsers()))
-    {
+    if ($gProfileFields->isVisible($field->getValue('usf_name_intern'), $gCurrentUser->editUsers())) {
         $javascriptCode .= '
-            userFields[' . $i . '] = {
-                "cat_id": '. (int) $field->getValue('cat_id'). ',
+            userFields[' . ++$i . '] = {
                 "cat_name": "'. str_replace('"', '\'', $field->getValue('cat_name')). '",
-                "usf_id": "'. (int) $field->getValue('usf_id'). '",
                 "usf_name": "'. addslashes($field->getValue('usf_name')). '",
                 "usf_name_intern": "'. addslashes($field->getValue('usf_name_intern')). '",
                 "usf_type": "'. $field->getValue('usf_type'). '",
@@ -264,82 +239,90 @@ foreach($gProfileFields->getProfileFields() as $field)
             };';
 
         // get available values for current field type and push to array
-        if($field->getValue('usf_type') === 'DROPDOWN' || $field->getValue('usf_type') === 'RADIO_BUTTON')
-        {
-            foreach($field->getValue('usf_value_list', 'text') as $key => $value)
-            {
+        if ($field->getValue('usf_type') === 'DROPDOWN' || $field->getValue('usf_type') === 'RADIO_BUTTON') {
+            foreach ($field->getValue('usf_value_list', 'text') as $key => $value) {
                 $javascriptCode .= '
                     userFields[' . $i . ']["usf_value_list"]["'. $key .'"] = "'. $value .'";';
             }
-        }
-        else
-        {
+        } else {
             $javascriptCode .= '
                 userFields[' . $i . ']["usf_value_list"] = "";';
         }
-        ++$i;
     }
-
-    $oldCategoryNameIntern = $field->getValue('cat_name_intern');
 }
 
-    // Add loginname and photo at the end of category basic data
-    // add new category with start and end date of role membership
-    if($posEndOfMasterData === 0)
-    {
-        $posEndOfMasterData = $i;
-        $i += 2;
-    }
-    $javascriptCode .= '
-        userFields[' . $posEndOfMasterData . '] = {
-            "cat_id": userFields[1]["cat_id"],
-            "cat_name": userFields[1]["cat_name"],
-            "usf_id": "usr_login_name",
-            "usf_name": "'.$gL10n->get('SYS_USERNAME').'",
-            "usf_name_intern": "'.$gL10n->get('SYS_USERNAME').'"
-        };
-
-        userFields[' . ($posEndOfMasterData + 1) . '] = {
-            "cat_id": userFields[1]["cat_id"],
-            "cat_name": userFields[1]["cat_name"],
-            "usf_id": "usr_photo",
-            "usf_name": "'.$gL10n->get('SYS_PHOTO').'",
-            "usf_name_intern": "'.$gL10n->get('SYS_PHOTO').'"
-        };
-
-        userFields[' . $i . '] = {
-            "cat_id": -1,
-            "cat_name": "'.$gL10n->get('SYS_ROLE_INFORMATION').'",
-            "usf_id": "mem_begin",
-            "usf_name": "'.$gL10n->get('SYS_MEMBERSHIP_START').'",
-            "usf_name_intern": "'.$gL10n->get('SYS_MEMBERSHIP_START').'"
+// after the profile fields add add some special profile informations e.g. username, photo, created at ...
+$javascriptCode .= '
+        userFields[' . ++$i . '] = {
+            "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+            "usf_name": "' . $gL10n->get('SYS_PHOTO') . '",
+            "usf_name_intern": "usr_photo"
         };';
 
-    ++$i;
+// administrator could export the uuid of each user to identify the user later at the import
+if ($gCurrentUser->editUsers()) {
     $javascriptCode .= '
-        userFields[' . $i . '] = {
-            "cat_id": -1,
+            userFields[' . ++$i . '] = {
+                "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+                "usf_name": "' . $gL10n->get('SYS_USERNAME') . '",
+                "usf_name_intern": "usr_login_name"
+            };
+
+            userFields[' . ++$i . '] = {
+                "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+                "usf_name": "' . $gL10n->get('SYS_CREATED_BY') . '",
+                "usf_name_intern": "usr_usr_id_create"
+                };
+
+            userFields[' . ++$i . '] = {
+                "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+                "usf_name": "' . $gL10n->get('SYS_CREATED_AT') . '",
+                "usf_name_intern": "usr_timestamp_create"
+                };
+
+            userFields[' . ++$i . '] = {
+                "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+                "usf_name": "' . $gL10n->get('SYS_CHANGED_BY') . '",
+                "usf_name_intern": "usr_usr_id_change"
+                };
+
+            userFields[' . ++$i . '] = {
+                "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+                "usf_name": "' . $gL10n->get('SYS_CHANGED_AT') . '",
+                "usf_name_intern": "usr_timestamp_change"
+                };
+
+            userFields[' . ++$i . '] = {
+                "cat_name": "' . $gL10n->get('SYS_PROFILE_INFORMATION') . '",
+                "usf_name": "' . $gL10n->get('SYS_UNIQUE_ID') . '",
+                "usf_name_intern": "usr_uuid"
+                };';
+}
+
+$javascriptCode .= '
+        userFields[' . ++$i . '] = {
             "cat_name": "'.$gL10n->get('SYS_ROLE_INFORMATION').'",
-            "usf_id": "mem_end",
+            "usf_name": "'.$gL10n->get('SYS_MEMBERSHIP_START').'",
+            "usf_name_intern": "mem_begin"
+        };
+
+        userFields[' . ++$i . '] = {
+            "cat_name": "'.$gL10n->get('SYS_ROLE_INFORMATION').'",
             "usf_name": "'.$gL10n->get('SYS_MEMBERSHIP_END').'",
-            "usf_name_intern": "'.$gL10n->get('SYS_MEMBERSHIP_END').'"
+            "usf_name_intern": "mem_end"
         };';
 
     // add new category with participant information of events
-    foreach($arrParticipientsInformation as $memberStatus => $columnName)
-    {
-        ++$i;
+    foreach ($arrParticipantsInformation as $memberStatus => $columnName) {
         $javascriptCode .= '
-            userFields['. $i . '] = {
-                "cat_id"   : -1,
+            userFields['. ++$i . '] = {
                 "cat_name" : "'.$gL10n->get('SYS_PARTICIPATION_INFORMATION').'",
-                "usf_id"   : "'.$memberStatus.'",
                 "usf_name" : "'.$columnName.'",
-                "usf_name_intern" : "'.$columnName.'",
+                "usf_name_intern" : "'.$memberStatus.'",
             };';
     }
 
-    $javascriptCode .= '
+$javascriptCode .= '
         return userFields;
 }
 
@@ -349,23 +332,20 @@ foreach($gProfileFields->getProfileFields() as $field)
 
 // now add all columns to the javascript row objects
 $actualColumnNumber = 1;
-while(isset($formValues['column' . $actualColumnNumber]))
-{
+while (isset($formValues['column' . $actualColumnNumber])) {
     $sortValue      = '';
     $conditionValue = '';
 
-    if(isset($formValues['sort' . $actualColumnNumber]))
-    {
+    if (isset($formValues['sort' . $actualColumnNumber])) {
         $sortValue = $formValues['sort' . $actualColumnNumber];
     }
-    if(isset($formValues['condition' . $actualColumnNumber]))
-    {
+    if (isset($formValues['condition' . $actualColumnNumber])) {
         $conditionValue = $formValues['condition' . $actualColumnNumber];
     }
 
     $javascriptCode .= '
         defaultFields[' . $actualColumnNumber . '] = {
-            "usf_id": "' . $formValues['column' . $actualColumnNumber] . '",
+            "usf_name_intern": "' . $formValues['column' . $actualColumnNumber] . '",
             "sort": "' . $sortValue . '",
             "condition": "' . $conditionValue . '"
         };';
@@ -405,7 +385,7 @@ $javascriptCode .= '
                         selected = "";
 
                         if (arrDefaultFields[fieldNumberShow]) {
-                            if (arrUserFields[key]["usf_id"] === arrDefaultFields[fieldNumberShow]["usf_id"]
+                            if (arrUserFields[key]["usf_name_intern"] === arrDefaultFields[fieldNumberShow]["usf_name_intern"]
                             &&  arrUserFields[key]["usf_value_list"][selectValue] == arrDefaultFields[fieldNumberShow]["condition"]) {
                                 selected = " selected=\"selected\" ";
                             }
@@ -422,14 +402,14 @@ $javascriptCode .= '
                     selected = "";
 
                     if (arrDefaultFields[fieldNumberShow]) {
-                        if (arrUserFields[key]["usf_id"] === arrDefaultFields[fieldNumberShow]["usf_id"]
+                        if (arrUserFields[key]["usf_name_intern"] === arrDefaultFields[fieldNumberShow]["usf_name_intern"]
                             && arrDefaultFields[fieldNumberShow]["condition"] == "1") {
                             selected = " selected=\"selected\" ";
                         }
                             html += "<option value=\"1\" " + selected + ">'.$gL10n->get('SYS_YES').'</option>";
                         selected = "";
 
-                        if (arrUserFields[key]["usf_id"] === arrDefaultFields[fieldNumberShow]["usf_id"]
+                        if (arrUserFields[key]["usf_name_intern"] === arrDefaultFields[fieldNumberShow]["usf_name_intern"]
                             && arrDefaultFields[fieldNumberShow]["condition"] == "0") {
                             selected = " selected=\"selected\" ";
                         }
@@ -447,8 +427,8 @@ $javascriptCode .= '
     }
 
     function loadList() {
-        var listId = $("#sel_select_configuration").val();
-        self.location.href = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist.php', array('active_role' => (int) $getActiveRole)) . '&lst_id=" + listId;
+        var listUuid = $("#sel_select_configuration").val();
+        self.location.href = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist.php', array('active_role' => (int) $getActiveRole)) . '&list_uuid=" + listUuid;
     }
 
     /**
@@ -472,14 +452,14 @@ $javascriptCode .= '
                 break;
 
             case "save":
-                myListConfigForm.action = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist_function.php', array('lst_id' => $getListId, 'mode' => 1)).'";
+                myListConfigForm.action = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist_function.php', array('list_uuid' => $getListUuid, 'mode' => 1)).'";
                 myListConfigForm.submit();
                 break;
 
             case "save_as":
                 var listName = "";
                 listName = prompt("'.$gL10n->get('SYS_CONFIGURATION_SAVE').'");
-                if (listName !== "") {
+                if (listName !== null) {
                     myListConfigForm.action = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist_function.php', array('mode' => 1)) . '&name=" + listName;
                     myListConfigForm.submit();
                 }
@@ -488,15 +468,7 @@ $javascriptCode .= '
             case "delete":
                 var msg_result = confirm("'.$gL10n->get('SYS_CONFIGURATION_DELETE').'");
                 if (msg_result) {
-                    myListConfigForm.action = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist_function.php', array('lst_id' => $getListId, 'mode' => 3)).'";
-                    myListConfigForm.submit();
-                }
-                break;
-
-            case "system":
-                var msg_result = confirm("'.$gL10n->get('SYS_WANT_CONFIGURATION_FOR_ALL_USERS').'");
-                if (msg_result) {
-                    myListConfigForm.action = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist_function.php', array('lst_id' => $getListId, 'mode' => 4)).'";
+                    myListConfigForm.action = "' . SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/groups-roles/mylist_function.php', array('list_uuid' => $getListUuid, 'mode' => 3)).'";
                     myListConfigForm.submit();
                 }
                 break;
@@ -518,7 +490,7 @@ $page->addJavascript('$(function() {
 });', true);
 
 // show form
-$form = new HtmlForm('mylist_configuration_form', ADMIDIO_URL. FOLDER_MODULES.'/groups-roles/mylist_prepare.php', $page);
+$form = new HtmlForm('mylist_configuration_form', '#', $page);
 $form->openGroupBox('gb_configuration_list', $gL10n->get('SYS_CONFIGURATION'));
 
 // read all relevant configurations from database and create an array
@@ -526,72 +498,71 @@ $yourLastConfigurationsGroup = false;
 $yourConfigurationsGroup     = false;
 $presetConfigurationsGroup   = false;
 $actualGroup                 = '';
-$configurationsArray[]       = array(0, $gL10n->get('SYS_CREATE_NEW_CONFIGURATION'), null);
+$configurationsArray[]       = array('', $gL10n->get('SYS_CREATE_NEW_CONFIGURATION'), null);
 $numberLastConfigurations    = 0;
 
-$sql = 'SELECT lst_id, lst_name, lst_global, lst_timestamp
+$sql = 'SELECT lst_id, lst_uuid, lst_name, lst_global, lst_timestamp
           FROM '.TBL_LISTS.'
-         WHERE lst_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
-           AND (  lst_usr_id = ? -- $gCurrentUser->getValue(\'usr_id\')
-               OR lst_global = 1)
+         WHERE lst_org_id = ? -- $gCurrentOrgId
+           AND (  lst_usr_id = ? -- $gCurrentUserId
+               OR lst_global = true)
       ORDER BY lst_global ASC, lst_name ASC, lst_timestamp DESC';
-$configurationsStatement = $gDb->queryPrepared($sql, array((int) $gCurrentOrganization->getValue('org_id'), (int) $gCurrentUser->getValue('usr_id')));
+$configurationsStatement = $gDb->queryPrepared($sql, array($gCurrentOrgId, $gCurrentUserId));
 
 $configurations = $configurationsStatement->fetchAll();
 
-foreach($configurations as $configuration)
-{
-    if($configuration['lst_global'] == 0 && !$yourLastConfigurationsGroup && strlen($configuration['lst_name']) === 0)
-    {
+foreach ($configurations as $configuration) {
+    if ($configuration['lst_global'] == 0 && !$yourLastConfigurationsGroup && (string) $configuration['lst_name'] === '') {
         $actualGroup = $gL10n->get('SYS_YOUR_LAST_CONFIGURATION');
         $yourLastConfigurationsGroup = true;
-    }
-    elseif($configuration['lst_global'] == 0 && !$yourConfigurationsGroup && strlen($configuration['lst_name']) > 0)
-    {
+    } elseif ($configuration['lst_global'] == 0 && !$yourConfigurationsGroup && (string) $configuration['lst_name'] !== '') {
         $actualGroup = $gL10n->get('SYS_YOUR_CONFIGURATION');
         $yourConfigurationsGroup = true;
-    }
-    elseif($configuration['lst_global'] == 1 && !$presetConfigurationsGroup)
-    {
+    } elseif ($configuration['lst_global'] == 1 && !$presetConfigurationsGroup) {
         $actualGroup = $gL10n->get('SYS_PRESET_CONFIGURATION');
         $presetConfigurationsGroup = true;
     }
 
-    // if its a temporary saved configuration than show timestamp of creating as name
-    if(strlen($configuration['lst_name']) === 0)
-    {
-        $objListTimestamp = new \DateTime($configuration['lst_timestamp']);
-        ++$numberLastConfigurations;
+    try {// if it's a temporary saved configuration than show timestamp of creating as name
+        if ((string)$configuration['lst_name'] === '') {
+            $objListTimestamp = new DateTime($configuration['lst_timestamp']);
+            ++$numberLastConfigurations;
 
-        // only 5 configurations without a name should be saved for each user
-        if($numberLastConfigurations > 5)
-        {
-            // delete all other configurations
-            $delList = new ListConfiguration($gDb, $configuration['lst_id']);
-            $delList->delete();
-        }
-        else
-        {
+            // only 5 configurations without a name should be saved for each user
+            if ($numberLastConfigurations > 5) {
+                // delete all other configurations
+                $delList = new ListConfiguration($gDb, $configuration['lst_id']);
+                $delList->delete();
+            } else {
+                // now add configuration to array
+                $configurationsArray[] = array($configuration['lst_uuid'], $objListTimestamp->format($gSettingsManager->getString('system_date') . ' ' . $gSettingsManager->getString('system_time')), $actualGroup);
+            }
+        } else {
             // now add configuration to array
-            $configurationsArray[] = array($configuration['lst_id'], $objListTimestamp->format($gSettingsManager->getString('system_date').' '.$gSettingsManager->getString('system_time')), $actualGroup);
+            $configurationsArray[] = array($configuration['lst_uuid'], $configuration['lst_name'], $actualGroup);
         }
+    } catch (AdmException $e) {
+        $e->showHtml();
+    } catch (Exception $e) {
+        echo $e->getMessage();
     }
-    else
-    {
-        // now add configuration to array
-        $configurationsArray[] = array($configuration['lst_id'], $configuration['lst_name'], $actualGroup);
-    }
-
 }
 
-$form->addSelectBox('sel_select_configuration', $gL10n->get('SYS_SELECT_CONFIGURATION'), $configurationsArray,
-    array('defaultValue' => $formValues['sel_select_configuration'], 'showContextDependentFirstEntry' => false));
+$form->addSelectBox(
+    'sel_select_configuration',
+    $gL10n->get('SYS_SELECT_CONFIGURATION'),
+    $configurationsArray,
+    array('defaultValue' => $formValues['sel_select_configuration'], 'showContextDependentFirstEntry' => false)
+);
 
 // Administrators could upgrade a configuration to a global configuration that is visible to all users
-if($gCurrentUser->isAdministrator())
-{
-    $form->addCheckbox('cbx_global_configuration', $gL10n->get('SYS_CONFIGURATION_ALL_USERS'), (bool) $list->getValue('lst_global'),
-        array('defaultValue' => $formValues['cbx_global_configuration'], 'helpTextIdLabel' => 'SYS_PRESET_CONFIGURATION_DESC'));
+if ($gCurrentUser->isAdministrator()) {
+    $form->addCheckbox(
+        'cbx_global_configuration',
+        $gL10n->get('SYS_CONFIGURATION_ALL_USERS'),
+        (bool) $list->getValue('lst_global'),
+        array('defaultValue' => $formValues['cbx_global_configuration'], 'helpTextIdLabel' => 'SYS_PRESET_CONFIGURATION_DESC')
+    );
 }
 
     $form->addDescription($gL10n->get('SYS_ADD_COLUMNS_DESC'));
@@ -618,25 +589,21 @@ if($gCurrentUser->isAdministrator())
 
 $form->openButtonGroup();
 $form->addButton('btn_add_column', $gL10n->get('SYS_ADD_COLUMN'), array('icon' => 'fa-plus-circle'));
-if($getListId > 0 && $list->getValue('lst_name') !== '')
-{
+if ($getListUuid !== '' && $list->getValue('lst_name') !== '') {
     $form->addButton('btn_save_changes', $gL10n->get('SYS_SAVE_CHANGES'), array('icon' => 'fa-check'));
-}
-else
-{
+} else {
     $form->addButton('btn_save', $gL10n->get('SYS_SAVE_CONFIGURATION'), array('icon' => 'fa-check'));
 }
 // your lists could be deleted, administrators are allowed to delete system configurations
-if(($gCurrentUser->isAdministrator() && $list->getValue('lst_global') == 1)
-|| ((int) $gCurrentUser->getValue('usr_id') === (int) $list->getValue('lst_usr_id') && strlen($list->getValue('lst_name')) > 0))
-{
+if (($gCurrentUser->isAdministrator() && $list->getValue('lst_global') == 1)
+|| ($gCurrentUserId === (int) $list->getValue('lst_usr_id') && strlen($list->getValue('lst_name')) > 0)) {
     $form->addButton('btn_delete', $gL10n->get('SYS_DELETE_CONFIGURATION'), array('icon' => 'fa-trash-alt'));
 }
 // current configuration can be duplicated and saved with another name
-if(strlen($list->getValue('lst_name')) > 0)
-{
+if (strlen($list->getValue('lst_name')) > 0) {
     $form->addButton(
-        'btn_copy', $gL10n->get('SYS_COPY_VAR', array($gL10n->get('SYS_CONFIGURATION'))),
+        'btn_copy',
+        $gL10n->get('SYS_COPY_VAR', array($gL10n->get('SYS_CONFIGURATION'))),
         array('icon' => 'fa-clone')
     );
 }
@@ -648,13 +615,11 @@ $form->openGroupBox('gb_select_members', $gL10n->get('SYS_SELECT_MEMBERS'));
 
 // show all roles where the user has the right to view them
 $sqlData = array();
-if($getActiveRole)
-{
-    $allVisibleRoles = $gCurrentUser->getAllVisibleRoles();
+if ($getActiveRole) {
+    $allVisibleRoles = $gCurrentUser->getRolesViewMemberships();
 
     // check if there are roles that the current user could view
-    if(count($allVisibleRoles) === 0)
-    {
+    if (count($allVisibleRoles) === 0) {
         $gMessage->show($gL10n->get('SYS_NO_RIGHTS_VIEW_LIST'));
         // => EXIT
     }
@@ -666,39 +631,43 @@ if($getActiveRole)
                           WHERE rol_id IN (' . Database::getQmForValues($allVisibleRoles) . ')
                        ORDER BY cat_sequence, rol_name';
     $sqlData['params'] = $allVisibleRoles;
-}
-else
-{
+} else {
     $sqlData['query'] = 'SELECT rol_id, rol_name, cat_name
                            FROM '.TBL_ROLES.'
                      INNER JOIN '.TBL_CATEGORIES.'
                              ON cat_id = rol_cat_id
                             AND cat_name_intern <> \'EVENTS\'
-                          WHERE rol_valid  = 0
-                            AND (  cat_org_id  = ? -- $gCurrentOrganization->getValue(\'org_id\')
+                          WHERE rol_valid  = false
+                            AND (  cat_org_id  = ? -- $gCurrentOrgId
                                 OR cat_org_id IS NULL )
                        ORDER BY cat_sequence, rol_name';
-    $sqlData['params'] = array((int) $gCurrentOrganization->getValue('org_id'));
+    $sqlData['params'] = array($gCurrentOrgId);
 
     // check if there are roles that the current user could view
     $inactiveRolesStatement = $gDb->queryPrepared($sqlData['query'], $sqlData['params']);
-    if($inactiveRolesStatement->rowCount() === 0)
-    {
-            $gMessage->show($gL10n->get('PRO_NO_ROLES_VISIBLE'));
-            // => EXIT
+    if ($inactiveRolesStatement->rowCount() === 0) {
+        $gMessage->show($gL10n->get('PRO_NO_ROLES_VISIBLE'));
+        // => EXIT
     }
 }
-$form->addSelectBoxFromSql('sel_roles_ids', $gL10n->get('SYS_ROLE'), $gDb, $sqlData,
-    array('property' => HtmlForm::FIELD_REQUIRED, 'defaultValue' => $formValues['sel_roles_ids'], 'multiselect' => true));
+$form->addSelectBoxFromSql(
+    'sel_roles_ids',
+    $gL10n->get('SYS_ROLE'),
+    $gDb,
+    $sqlData,
+    array('property' => HtmlForm::FIELD_REQUIRED, 'defaultValue' => $formValues['sel_roles_ids'], 'multiselect' => true)
+);
 
-if ($gSettingsManager->getBool('members_enable_user_relations'))
-{
+if ($gSettingsManager->getBool('members_enable_user_relations')) {
     // select box showing all relation types
     $sql = 'SELECT urt_id, urt_name, urt_name
               FROM '.TBL_USER_RELATION_TYPES.'
           ORDER BY urt_name';
     $form->addSelectBoxFromSql(
-        'sel_relationtype_ids', $gL10n->get('SYS_USER_RELATION'), $gDb, $sql,
+        'sel_relationtype_ids',
+        $gL10n->get('SYS_USER_RELATION'),
+        $gDb,
+        $sql,
         array('showContextDependentFirstEntry' => false, 'multiselect' => true, 'defaultValue' => isset($formValues['sel_relationtype_ids']) ? $formValues['sel_relationtype_ids'] : '')
     );
 }
@@ -706,7 +675,8 @@ if ($gSettingsManager->getBool('members_enable_user_relations'))
 $form->closeGroupBox();
 
 $form->addButton(
-    'btn_show_list', $gL10n->get('SYS_SHOW_LIST'),
+    'btn_show_list',
+    $gL10n->get('SYS_SHOW_LIST'),
     array('icon' => 'fa-list-alt', 'class' => 'btn-primary admidio-margin-bottom')
 );
 

@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -28,7 +28,7 @@
  */
 class ComponentUpdate extends Component
 {
-    const UPDATE_STEP_STOP = 'stop';
+    public const UPDATE_STEP_STOP = 'stop';
 
     /**
      * Constructor that will create an object for component updating.
@@ -64,12 +64,10 @@ class ComponentUpdate extends Component
         global $gLogger;
 
         // update of Admidio core has another path for the xml files as plugins
-        if ($this->getValue('com_type') === 'SYSTEM')
-        {
+        if ($this->getValue('com_type') === 'SYSTEM') {
             $updateFile = ADMIDIO_PATH . FOLDER_INSTALLATION . '/db_scripts/update_'.$mainVersion.'_'.$minorVersion.'.xml';
 
-            if (is_file($updateFile))
-            {
+            if (is_file($updateFile)) {
                 return new \SimpleXMLElement($updateFile, 0, true);
             }
 
@@ -92,23 +90,17 @@ class ComponentUpdate extends Component
         $maxUpdateStep = 0;
         $currentVersionArray = self::getVersionArrayFromVersion($this->getValue('com_version'));
 
-        if($currentVersionArray[0] > 1)
-        {
-            try
-            {
+        if ($currentVersionArray[0] > 1) {
+            try {
                 // open xml file for this version
                 $xmlObject = $this->getXmlObject($currentVersionArray[0], $currentVersionArray[1]);
-            }
-            catch (\UnexpectedValueException $exception)
-            {
+            } catch (\UnexpectedValueException $exception) {
                 return 0;
             }
 
             // go step by step through the SQL statements until the last one is found
-            foreach ($xmlObject->children() as $updateStep)
-            {
-                if ((string) $updateStep === self::UPDATE_STEP_STOP)
-                {
+            foreach ($xmlObject->children() as $updateStep) {
+                if ((string) $updateStep === self::UPDATE_STEP_STOP) {
                     break;
                 }
 
@@ -132,13 +124,15 @@ class ComponentUpdate extends Component
     }
 
     /**
-     * Prepares and execute a sql statement
-     * @param string $sql
-     * @param bool   $showError
+     * Prepares and execute a sql statement.
+     * @param string $sql       The sql statement that should be executed.
+     * @param bool   $showError If set to **true** the error will be shown and the script will terminated
+     *                          within the Database class.
+     * @return bool Return **true** if the sql statement could be successfully executed otherwise **false**
      */
     private function executeUpdateSql($sql, $showError)
     {
-        $this->db->queryPrepared(Database::prepareSqlTablePrefix($sql), array(), $showError);
+        return $this->db->queryPrepared(Database::prepareSqlAdmidioParameters($sql), array(), $showError);
     }
 
     /**
@@ -149,9 +143,10 @@ class ComponentUpdate extends Component
      * if the value of the attribute is equal to your current **DB_ENGINE**. If the node has
      * an attribute **error** and this is set to **ignore** than an sql error will not stop
      * the update script.
-     * @param \SimpleXMLElement $xmlNode A SimpleXML node of the current update step.
+     * @param SimpleXMLElement $xmlNode A SimpleXML node of the current update step.
+     * @param string $version A version string of the version corresponding to the $xmlNode
      */
-    private function executeStep(\SimpleXMLElement $xmlNode)
+    private function executeStep(SimpleXMLElement $xmlNode, string $version = '')
     {
         global $gLogger;
 
@@ -159,44 +154,55 @@ class ComponentUpdate extends Component
 
         $startTime = microtime(true);
 
-        // if a method of this class was set in the update step
-        // then call this function and don't execute a SQL statement
-        if (str_starts_with($updateStepContent, 'ComponentUpdateSteps::'))
-        {
-            $gLogger->info('UPDATE: Execute update step Nr: ' . (int) $xmlNode['id']);
-
-            self::executeUpdateMethod($updateStepContent);
-
-            $gLogger->debug('UPDATE: Execution time ' . getExecutionTime($startTime));
-        }
         // only execute if sql statement is for all databases or for the used database
-        elseif (!isset($xmlNode['database']) || (string) $xmlNode['database'] === DB_ENGINE)
-        {
-            $showError = true;
-            // if the attribute error was set to "ignore" then don't show errors that occurs on sql execution
-            if (isset($xmlNode['error']) && (string) $xmlNode['error'] === 'ignore')
-            {
-                $showError = false;
+        if (!isset($xmlNode['database']) || (string) $xmlNode['database'] === DB_ENGINE) {
+            $errorMessage = '<p>An error occured within the update script. Please visit our
+                support forum <a href="https://www.admidio.org/forum">https://www.admidio.org/forum</a> and
+                provide the following informations.</p>
+                <p><b>VERSION:</b> ' . $version . '<br><b>STEP:</b> ' . (int) $xmlNode['id'] . '</p>';
+
+            // if a method of this class was set in the update step
+            // then call this function and don't execute a SQL statement
+            if (str_starts_with($updateStepContent, 'ComponentUpdateSteps::')) {
+                $gLogger->info('UPDATE: Execute update step Nr: ' . (int) $xmlNode['id']);
+
+                try {
+                    self::executeUpdateMethod($updateStepContent);
+                } catch (Throwable $e) {
+                    echo '
+                        <div style="font-family: monospace;">
+                             <p><strong>S C R I P T - E R R O R</strong></p>
+                             ' . $errorMessage . '
+                             <p><strong>MESSAGE:</strong> ' . $e->getMessage() . '</p>
+                             <p><strong>B A C K T R A C E</strong></p>
+                             <p>' . str_replace('#', '<br />', $e->getTraceAsString()) . '</p>
+                         </div>';
+                    exit();
+                }
+
+                $gLogger->debug('UPDATE: Execution time ' . getExecutionTime($startTime));
+            } else {
+                $showError = true;
+                // if the attribute error was set to "ignore" then don't show errors that occurs on sql execution
+                if (isset($xmlNode['error']) && (string) $xmlNode['error'] === 'ignore') {
+                    $showError = false;
+                }
+
+                $gLogger->info('UPDATE: Execute update step Nr: ' . (int) $xmlNode['id']);
+
+                $returnCodeSql = $this->executeUpdateSql($updateStepContent, false);
+
+                if($showError && !$returnCodeSql) {
+                    $this->db->showError($errorMessage);
+                    // => EXIT
+                }
+
+                $gLogger->debug('UPDATE: Execution time ' . getExecutionTime($startTime));
             }
-
-            $gLogger->info('UPDATE: Execute update step Nr: ' . (int) $xmlNode['id']);
-
-            $this->executeUpdateSql($updateStepContent, $showError);
-
-            $gLogger->debug('UPDATE: Execution time ' . getExecutionTime($startTime));
-        }
-        elseif ((string) $xmlNode['database'] !== DB_ENGINE)
-        {
+        } else {
             $gLogger->info(
                 'UPDATE: Update step is for another database!',
                 array('database' => (string) $xmlNode['database'], 'step' => (int) $xmlNode['id'])
-            );
-        }
-        else
-        {
-            $gLogger->warning(
-                'UPDATE: Unexpected update step!',
-                array('content' => (string) $xmlNode, 'attributes' => (array) $xmlNode->attributes())
             );
         }
 
@@ -206,9 +212,11 @@ class ComponentUpdate extends Component
     }
 
     /**
-     * Do a loop through all versions start with the current version and end with the target version.
-     * Within every subversion the method will search for an update xml file and execute all steps
-     * in this file until the end of file is reached. If an error occurred then the update will be stopped.
+     * Do a loop through all versions start with the last installed version and end with the current version of the
+     * file system (**$targetVersion**). Within every subversion the method will search for an update xml file and
+     * execute all steps in this file until the end of file is reached. If an error occurred then the update will
+     * be stopped and the system will be marked with update not completed so that it's possible to continue the
+     * update later if the problem was fixed.
      * @param string $targetVersion The target version to update.
      */
     public function update($targetVersion)
@@ -219,72 +227,67 @@ class ComponentUpdate extends Component
         $targetVersionArray  = self::getVersionArrayFromVersion($targetVersion);
         $initialMinorVersion = $currentVersionArray[1];
 
-        for ($mainVersion = $currentVersionArray[0]; $mainVersion <= $targetVersionArray[0]; ++$mainVersion)
-        {
+        // if the update is from a version lower than 4.2.0 than the field com_update_complete doesn't exist
+        // otherwise set the status to incomplete update
+        if(version_compare($this->getValue('com_update_version'), '4.2.0', '>')) {
+            $this->setValue('com_update_completed', false);
+            $this->save();
+        }
+
+        for ($mainVersion = $currentVersionArray[0]; $mainVersion <= $targetVersionArray[0]; ++$mainVersion) {
             // Set max subversion for iteration. If we are in the loop of the target main version
             // then set target minor-version to the max version
             $maxMinorVersion = 20;
-            if ($mainVersion === $targetVersionArray[0])
-            {
+            if ($mainVersion === $targetVersionArray[0]) {
                 $maxMinorVersion = $targetVersionArray[1];
             }
 
-            for ($minorVersion = $initialMinorVersion; $minorVersion <= $maxMinorVersion; ++$minorVersion)
-            {
+            for ($minorVersion = $initialMinorVersion; $minorVersion <= $maxMinorVersion; ++$minorVersion) {
                 // if version is not equal to current version then start update step with 0
-                if ($mainVersion !== $currentVersionArray[0] || $minorVersion !== $currentVersionArray[1])
-                {
+                if ($mainVersion !== $currentVersionArray[0] || $minorVersion !== $currentVersionArray[1]) {
                     $this->setValue('com_update_step', 0);
                     $this->save();
                 }
+
+                // save current version to system component
+                $this->setValue('com_version', $mainVersion.'.'.$minorVersion.'.0');
+                $this->save();
 
                 // output of the version number for better debugging
                 $gLogger->notice('UPDATE: Start executing update steps to version '.$mainVersion.'.'.$minorVersion);
 
                 // open xml file for this version
-                try
-                {
+                try {
                     $xmlObject = $this->getXmlObject($mainVersion, $minorVersion);
 
                     // go step by step through the SQL statements and execute them
-                    foreach ($xmlObject->children() as $updateStep)
-                    {
-                        if ((string) $updateStep === self::UPDATE_STEP_STOP)
-                        {
+                    foreach ($xmlObject->children() as $updateStep) {
+                        if ((string) $updateStep === self::UPDATE_STEP_STOP) {
                             break;
                         }
-                        if ((int) $updateStep['id'] > (int) $this->getValue('com_update_step'))
-                        {
-                            $this->executeStep($updateStep);
-                        }
-                        else
-                        {
+                        if ((int) $updateStep['id'] > (int) $this->getValue('com_update_step')) {
+                            $this->executeStep($updateStep, $mainVersion.'.'.$minorVersion.'.0');
+                        } else {
                             $gLogger->info('UPDATE: Skip update step Nr: ' . (int) $updateStep['id']);
                         }
                     }
-                }
-                catch (\UnexpectedValueException $exception)
-                {
+                } catch (\UnexpectedValueException $exception) {
                     // TODO
                 }
 
                 $gLogger->notice('UPDATE: Finish executing update steps to version '.$mainVersion.'.'.$minorVersion);
-
-                // save current version to system component
-                $this->setValue('com_version', ADMIDIO_VERSION);
-                $this->setValue('com_beta', ADMIDIO_VERSION_BETA);
-                $this->save();
-
-                // save current version to all modules
-                $sql = 'UPDATE '.TBL_COMPONENTS.'
-                           SET com_version = ? -- ADMIDIO_VERSION
-                             , com_beta    = ? -- ADMIDIO_VERSION_BETA
-                         WHERE com_type = \'MODULE\'';
-                $this->db->queryPrepared($sql, array(ADMIDIO_VERSION, ADMIDIO_VERSION_BETA));
             }
 
             // reset subversion because we want to start update for next main version with subversion 0
             $initialMinorVersion = 0;
         }
+
+        // save current version of file system to all modules
+        $sql = 'UPDATE '.TBL_COMPONENTS.'
+                           SET com_version = ? -- ADMIDIO_VERSION
+                             , com_beta    = ? -- ADMIDIO_VERSION_BETA
+                             , com_update_completed = true
+                         WHERE com_type IN (\'SYSTEM\', \'MODULE\')';
+        $this->db->queryPrepared($sql, array(ADMIDIO_VERSION, ADMIDIO_VERSION_BETA));
     }
 }

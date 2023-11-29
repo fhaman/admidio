@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -112,8 +112,7 @@ class ModuleWeblinks extends Modules
         global $gCurrentUser, $gSettingsManager, $gDb;
 
         // Parameter
-        if($limit === null)
-        {
+        if ($limit === null) {
             $limit = $gSettingsManager->getInt('weblinks_per_page');
         }
 
@@ -129,12 +128,10 @@ class ModuleWeblinks extends Modules
                        '.$sqlConditions['sql'].'
               ORDER BY cat_sequence, lnk_name, lnk_timestamp_create DESC';
 
-        if($limit > 0)
-        {
+        if ($limit > 0) {
             $sql .= ' LIMIT '.$limit;
         }
-        if($startElement > 0)
-        {
+        if ($startElement > 0) {
             $sql .= ' OFFSET '.$startElement;
         }
 
@@ -173,25 +170,6 @@ class ModuleWeblinks extends Modules
     }
 
     /**
-     * Returns a module specific headline
-     * @param string $headline The initial headline of the module.
-     * @return string Returns the full headline of the module
-     */
-    public function getHeadline($headline)
-    {
-        global $gDb;
-
-        $catId = (int) $this->getParameter('cat_id');
-        // set headline with category name
-        if($catId > 0)
-        {
-            $category  = new TableCategory($gDb, $catId);
-            $headline .= ' - '. $category->getValue('cat_name');
-        }
-        return $headline;
-    }
-
-    /**
      * Add several conditions to an SQL string that could later be used as additional conditions in other SQL queries.
      * @return array<string,string|array<int,int>> Returns an array of a SQL string with additional conditions and it's query params.
      */
@@ -200,18 +178,16 @@ class ModuleWeblinks extends Modules
         $sqlConditions = '';
         $params = array();
 
-        $id    = (int) $this->getParameter('id');
+        $uuid  = $this->getParameter('lnk_uuid');
         $catId = (int) $this->getParameter('cat_id');
 
         // In case ID was permitted and user has rights
-        if($id > 0)
-        {
-            $sqlConditions .= ' AND lnk_id = ? '; // $id
-            $params[] = $id;
+        if (!empty($uuid)) {
+            $sqlConditions .= ' AND lnk_uuid = ? '; // $uuid
+            $params[] = $uuid;
         }
         // show all weblinks from category
-        elseif($catId > 0)
-        {
+        elseif ($catId > 0) {
             $sqlConditions .= ' AND cat_id = ? '; // $catId
             $params[] = $catId;
         }

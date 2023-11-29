@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * RSS feed for weblinks
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -18,26 +18,23 @@
 require_once(__DIR__ . '/../../system/common.php');
 
 // Initialize and check the parameters
-$getHeadline = admFuncVariableIsValid($_GET, 'headline', 'string', array('defaultValue' => $gL10n->get('LNK_WEBLINKS')));
+$getHeadline = admFuncVariableIsValid($_GET, 'headline', 'string', array('defaultValue' => $gL10n->get('SYS_WEBLINKS')));
 
 // Check if RSS is active...
-if (!$gSettingsManager->getBool('enable_rss'))
-{
+if (!$gSettingsManager->getBool('enable_rss')) {
     $gMessage->setForwardUrl($gHomepage);
     $gMessage->show($gL10n->get('SYS_RSS_DISABLED'));
     // => EXIT
 }
 
 // check if module is active or is public
-if ((int) $gSettingsManager->get('enable_weblinks_module') !== 1)
-{
+if ((int) $gSettingsManager->get('enable_weblinks_module') !== 1) {
     // disabled
     $gMessage->show($gL10n->get('SYS_MODULE_DISABLED'));
     // => EXIT
 }
 
-if((int) $gSettingsManager->get('system_show_create_edit') === 1)
-{
+if ((int) $gSettingsManager->get('system_show_create_edit') === 1) {
     // show firstname and lastname of create and last change user
     $additionalFields = ' cre_firstname.usd_value || \' \' || cre_surname.usd_value AS create_name ';
     $additionalTables = '
@@ -51,9 +48,7 @@ if((int) $gSettingsManager->get('system_show_create_edit') === 1)
         $gProfileFields->getProperty('LAST_NAME', 'usf_id'),
         $gProfileFields->getProperty('FIRST_NAME', 'usf_id')
     );
-}
-else
-{
+} else {
     // show username of create and last change user
     $additionalFields = ' cre_username.usr_login_name AS create_name ';
     $additionalTables = '
@@ -69,9 +64,9 @@ $sql = 'SELECT cat.*, lnk.*, '.$additionalFields.'
             ON cat_id = lnk_cat_id
                '.$additionalTables.'
          WHERE cat_type = \'LNK\'
-           AND cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
+           AND cat_org_id = ? -- $gCurrentOrgId
       ORDER BY lnk_timestamp_create DESC';
-$queryParams[] = (int) $gCurrentOrganization->getValue('org_id');
+$queryParams[] = $gCurrentOrgId;
 $statement = $gDb->queryPrepared($sql, $queryParams);
 
 // start defining the RSS Feed
@@ -82,15 +77,14 @@ $orgLongname = $gCurrentOrganization->getValue('org_longname');
 $rss = new RssFeed(
     $orgLongname.' - '.$getHeadline,
     $gCurrentOrganization->getValue('org_homepage'),
-    $gL10n->get('LNK_LINKS_FROM', array($orgLongname)),
+    $gL10n->get('SYS_LINK_COLLECTION_FROM', array($orgLongname)),
     $orgLongname
 );
 
 $weblink = new TableWeblink($gDb);
 
 // Dem RssFeed-Objekt jetzt die RSSitems zusammenstellen und hinzufuegen
-while ($row = $statement->fetch())
-{
+while ($row = $statement->fetch()) {
     // submit links to object
     $weblink->clear();
     $weblink->setArray($row);

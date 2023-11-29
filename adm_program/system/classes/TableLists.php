@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_lists
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -38,19 +38,19 @@ class TableLists extends TableAccess
      */
     public function delete()
     {
-        global $gSettingsManager;
+        global $gSettingsManager, $gL10n;
 
         $lstId = (int) $this->getValue('lst_id');
 
-        // if this list is the default configuration than it couldn't be deleted
-        if ($lstId === $gSettingsManager->getInt('groups_roles_default_configuration'))
-        {
-            throw new AdmException('SYS_ERROR_DELETE_DEFAULT_LIST', array($this->getValue('lst_name')));
+        // if this list is the default configuration of a module than it couldn't be deleted
+        if ($lstId === $gSettingsManager->getInt('groups_roles_default_configuration')) {
+            throw new AdmException('SYS_ERROR_DELETE_DEFAULT_LIST', array($this->getValue('lst_name'), $gL10n->get('SYS_GROUPS_ROLES')));
         }
-        // if this list is the default configuration for particpation list than it couldn't be deleted
-        if ($lstId === $gSettingsManager->getInt('dates_default_list_configuration'))
-        {
-            throw new AdmException('DAT_ERROR_DELETE_DEFAULT_LIST', array($this->getValue('lst_name')));
+        if ($lstId === $gSettingsManager->getInt('dates_default_list_configuration')) {
+            throw new AdmException('SYS_ERROR_DELETE_DEFAULT_LIST', array($this->getValue('lst_name'), $gL10n->get('DAT_DATES')));
+        }
+        if ($lstId === $gSettingsManager->getInt('members_list_configuration')) {
+            throw new AdmException('SYS_ERROR_DELETE_DEFAULT_LIST', array($this->getValue('lst_name'), $gL10n->get('SYS_MEMBERS')));
         }
 
         $this->db->startTransaction();
@@ -78,19 +78,15 @@ class TableLists extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentOrganization, $gCurrentUser;
-
         $this->setValue('lst_timestamp', DATETIME_NOW);
-        $this->setValue('lst_usr_id', (int) $gCurrentUser->getValue('usr_id'));
+        $this->setValue('lst_usr_id', $GLOBALS['gCurrentUserId']);
 
-        if ($this->newRecord && empty($this->getValue('lst_org_id')))
-        {
-            $this->setValue('lst_org_id', (int) $gCurrentOrganization->getValue('org_id'));
+        if ($this->newRecord && empty($this->getValue('lst_org_id'))) {
+            $this->setValue('lst_org_id', $GLOBALS['gCurrentOrgId']);
         }
 
         // if "lst_global" isn't set explicit to "1", set it to "0"
-        if ((int) $this->getValue('lst_global') !== 1)
-        {
+        if ((int) $this->getValue('lst_global') !== 1) {
             $this->setValue('lst_global', 0);
         }
 

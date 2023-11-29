@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_texts
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -40,8 +40,7 @@ class TableText extends TableAccess
      */
     public function getValue($columnName, $format = '')
     {
-        if ($columnName === 'txt_text')
-        {
+        if ($columnName === 'txt_text') {
             return $this->dbColumns['txt_text'];
         }
 
@@ -59,12 +58,9 @@ class TableText extends TableAccess
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentOrganization;
-
-        if ($this->newRecord && $this->getValue('txt_org_id') === '')
-        {
+        if ($this->newRecord && $this->getValue('txt_org_id') === '') {
             // Insert
-            $this->setValue('txt_org_id', (int) $gCurrentOrganization->getValue('org_id'));
+            $this->setValue('txt_org_id', $GLOBALS['gCurrentOrgId']);
         }
 
         return parent::save($updateFingerPrint);

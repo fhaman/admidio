@@ -3,20 +3,27 @@
  ***********************************************************************************************
  * Class manages access to database table adm_roles
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
  */
 
 /**
- * Diese Klasse dient dazu einen Rollenobjekt zu erstellen.
- * Eine Rolle kann ueber diese Klasse in der Datenbank verwaltet werden.
- * Dazu werden die Informationen der Rolle sowie der zugehoerigen Kategorie
- * ausgelesen. Geschrieben werden aber nur die Rollendaten
+ * This class is used to create a role object.
+ * A role can be administered over this class in the database.
+ * For this purpose the information of the role as well as the associated category
+ * are read out. But only the role data are written
  */
 class TableRoles extends TableAccess
 {
+    public const ROLE_GROUP = 0;
+    public const ROLE_EVENT = 1;
+
+    public const VIEW_NOBODY = 0;
+    public const VIEW_LEADERS = 3;
+    public const VIEW_ROLE_MEMBERS = 1;
+    public const VIEW_LOGIN_USERS = 2;
     /**
      * @var int number of leaders of this role
      */
@@ -25,6 +32,10 @@ class TableRoles extends TableAccess
      * @var int number of members (without leaders) of this role
      */
     protected $countMembers;
+    /**
+     * @var int Represents the type of the role that could be ROLE_GROUP (default) or ROLE_EVENT
+     */
+    protected $type;
 
     /**
      * Constructor that will create an object of a recordset of the table adm_roles.
@@ -39,6 +50,13 @@ class TableRoles extends TableAccess
         $this->connectAdditionalTable(TBL_CATEGORIES, 'cat_id', 'rol_cat_id');
 
         parent::__construct($database, TBL_ROLES, 'rol', $rolId);
+
+        // set default values for new roles
+        if($rolId === 0) {
+            $this->setValue('rol_view_memberships', TableRoles::VIEW_ROLE_MEMBERS);
+            $this->setValue('rol_view_members_profiles', TableRoles::VIEW_NOBODY);
+            $this->setValue('rol_mail_this_role', TableRoles::VIEW_LOGIN_USERS);
+        }
     }
 
     /**
@@ -49,27 +67,21 @@ class TableRoles extends TableAccess
     public function allowedToAssignMembers(User $user)
     {
         // you aren't allowed to change membership of not active roles
-        if ((int) $this->getValue('rol_valid') === 0)
-        {
+        if ((int) $this->getValue('rol_valid') === 0) {
             return false;
         }
 
-        if ($user->manageRoles())
-        {
+        if ($user->manageRoles()) {
             // only administrators are allowed to assign new members to administrator role
-            if ((int) $this->getValue('rol_administrator') === 0 || $user->isAdministrator())
-            {
+            if ((int) $this->getValue('rol_administrator') === 0 || $user->isAdministrator()) {
                 return true;
             }
-        }
-        else
-        {
+        } else {
             $rolLeaderRights = (int) $this->getValue('rol_leader_rights');
 
             // leader are allowed to assign members if it's configured in the role
             if (($rolLeaderRights === ROLE_LEADER_MEMBERS_ASSIGN || $rolLeaderRights === ROLE_LEADER_MEMBERS_ASSIGN_EDIT)
-                && $user->isLeaderOfRole((int) $this->getValue('rol_id')))
-            {
+                && $user->isLeaderOfRole((int) $this->getValue('rol_id'))) {
                 return true;
             }
         }
@@ -85,13 +97,11 @@ class TableRoles extends TableAccess
     public function allowedToEditMembers(User $user)
     {
         // you aren't allowed to edit users of not active roles
-        if ((int) $this->getValue('rol_valid') === 0)
-        {
+        if ((int) $this->getValue('rol_valid') === 0) {
             return false;
         }
 
-        if ($user->editUsers())
-        {
+        if ($user->editUsers()) {
             return true;
         }
 
@@ -120,12 +130,11 @@ class TableRoles extends TableAccess
      */
     public function countLeaders()
     {
-        if ($this->countLeaders === -1)
-        {
+        if ($this->countLeaders === -1) {
             $sql = 'SELECT COUNT(*) AS count
                       FROM '.TBL_MEMBERS.'
                      WHERE mem_rol_id = ? -- $this->getValue(\'rol_id\')
-                       AND mem_leader = 1
+                       AND mem_leader = false
                        AND mem_begin <= ? -- DATE_NOW
                        AND mem_end    > ? -- DATE_NOW';
             $pdoStatement = $this->db->queryPrepared($sql, array((int) $this->getValue('rol_id'), DATE_NOW, DATE_NOW));
@@ -145,13 +154,12 @@ class TableRoles extends TableAccess
      */
     public function countMembers($exceptUserId = null)
     {
-        if ($this->countMembers === -1)
-        {
+        if ($this->countMembers === -1) {
             $sql = 'SELECT COUNT(*) + SUM(mem_count_guests) AS count
                       FROM '.TBL_MEMBERS.'
                      WHERE mem_rol_id  = ? -- $this->getValue(\'rol_id\')
                        AND mem_usr_id <> ? -- $exceptUserId
-                       AND mem_leader  = 0
+                       AND mem_leader  = false
                        AND mem_begin  <= ? -- DATE_NOW
                        AND mem_end     > ? -- DATE_NOW
                        AND (mem_approved IS NULL
@@ -166,17 +174,16 @@ class TableRoles extends TableAccess
     }
 
     /**
-     * die Funktion gibt die Anzahl freier Plaetze zurueck
-     * ist rol_max_members nicht gesetzt so wird INF zurueckgegeben
-     * @param bool $countLeaders
+     * Returns the number of available places within this role for participants. If **rol_max_members** is not set
+     * than the method returns INF.
+     * @param bool $countLeaders Flag if the leaders should be count as participants. As per default they will not count.
      * @return int|float
      */
     public function countVacancies($countLeaders = false)
     {
         $rolMaxMembers = $this->getValue('rol_max_members');
 
-        if (!is_int($rolMaxMembers))
-        {
+        if (!is_int($rolMaxMembers)) {
             return INF;
         }
 
@@ -185,10 +192,9 @@ class TableRoles extends TableAccess
                  WHERE mem_rol_id = ? -- $this->getValue(\'rol_id\')
                    AND mem_begin <= ? -- DATE_NOW
                    AND mem_end    > ? -- DATE_NOW';
-        if (!$countLeaders)
-        {
+        if (!$countLeaders) {
             $sql .= '
-                AND mem_leader = 0 ';
+                AND mem_leader = false ';
         }
         $pdoStatement = $this->db->queryPrepared($sql, array((int) $this->getValue('rol_id'), DATE_NOW, DATE_NOW));
 
@@ -197,41 +203,37 @@ class TableRoles extends TableAccess
 
     /**
      * Deletes the selected role of the table and all references in other tables.
-     * After that the class will be initialize.
+     * After that the class will be initialized.
      * @throws AdmException
      * @return bool **true** if no error occurred
      */
     public function delete()
     {
-        global $gCurrentSession, $gL10n, $gCurrentOrganization;
+        global $gCurrentSession, $gL10n;
 
         $rolId = (int) $this->getValue('rol_id');
 
-        if ((int) $this->getValue('rol_default_registration') === 1)
-        {
+        if ((int) $this->getValue('rol_default_registration') === 1) {
             // checks if at least one other role has this flag, if not than this role couldn't be deleted
             $sql = 'SELECT COUNT(*) AS count
                       FROM '.TBL_ROLES.'
                 INNER JOIN '.TBL_CATEGORIES.'
                         ON cat_id = rol_cat_id
-                     WHERE rol_default_registration = 1
+                     WHERE rol_default_registration = true
                        AND rol_id    <> ? -- $rolId
-                       AND cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')';
-            $countRolesStatement = $this->db->queryPrepared($sql, array($rolId, (int) $gCurrentOrganization->getValue('org_id')));
+                       AND cat_org_id = ? -- $GLOBALS[\'gCurrentOrgId\']';
+            $countRolesStatement = $this->db->queryPrepared($sql, array($rolId, $GLOBALS['gCurrentOrgId']));
 
-            if ((int) $countRolesStatement->fetchColumn() === 0)
-            {
+            if ((int) $countRolesStatement->fetchColumn() === 0) {
                 throw new AdmException('SYS_DELETE_NO_DEFAULT_ROLE', array($this->getValue('rol_name'), $gL10n->get('SYS_DEFAULT_ASSIGNMENT_REGISTRATION')));
             }
         }
 
         // users are not allowed to delete system roles
-        if ((int) $this->getValue('rol_system') === 1)
-        {
+        if ((int) $this->getValue('rol_system') === 1) {
             throw new AdmException('SYS_DELETE_SYSTEM_ROLE', array($this->getValue('rol_name')));
         }
-        if ((int) $this->getValue('rol_administrator') === 1)
-        {
+        if ((int) $this->getValue('rol_administrator') === 1) {
             throw new AdmException('SYS_CANT_DELETE_ROLE', array($gL10n->get('SYS_ADMINISTRATOR')));
         }
 
@@ -257,14 +259,13 @@ class TableRoles extends TableAccess
 
         $return = parent::delete();
 
-        $this->db->endTransaction();
-
-        if ($gCurrentSession instanceof Session)
-        {
+        if ($gCurrentSession instanceof Session) {
             // all active users must renew their user data because maybe their
-            // rights have been changed if they where members of this role
-            $gCurrentSession->renewUserObject();
+            // rights have been changed if they were members of this role
+            $gCurrentSession->reloadAllSessions();
         }
+
+        $this->db->endTransaction();
 
         return $return;
     }
@@ -287,8 +288,7 @@ class TableRoles extends TableAccess
             12 => $gL10n->get('SYS_MONTHLY')
         );
 
-        if ($costPeriod !== null)
-        {
+        if ($costPeriod !== null) {
             return $costPeriods[$costPeriod];
         }
 
@@ -302,36 +302,29 @@ class TableRoles extends TableAccess
      */
     public function getDefaultList()
     {
-        global $gSettingsManager, $gCurrentOrganization;
+        global $gSettingsManager;
 
         $defaultListId = (int) $this->getValue('rol_lst_id');
 
         // if default list is set, return it
-        if ($defaultListId > 0)
-        {
+        if ($defaultListId > 0) {
             return $defaultListId;
         }
 
-        if($this->getValue('cat_name_intern') === 'EVENTS')
-        {
+        if ($this->type === TableRoles::ROLE_EVENT) {
             // read system default list configuration for events
             return $gSettingsManager->getInt('dates_default_list_configuration');
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 // read system default list configuration
                 $defaultListConfiguration = $gSettingsManager->getInt('groups_roles_default_configuration');
-            }
-            catch (\InvalidArgumentException $exception)
-            {
+            } catch (\InvalidArgumentException $exception) {
                 // if no default list was set than load another global list of this organization
                 $sql = 'SELECT MIN(lst_id) as lst_id
                           FROM '.TBL_LISTS.'
-                         WHERE lst_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
-                           AND lst_global = 1 ';
-                $statement = $this->db->queryPrepared($sql, array($gCurrentOrganization->getValue('org_id')));
+                         WHERE lst_org_id = ? -- $GLOBALS[\'gCurrentOrgId\']
+                           AND lst_global = true ';
+                $statement = $this->db->queryPrepared($sql, array($GLOBALS['gCurrentOrgId']));
                 $row = $statement->fetch();
                 $defaultListConfiguration = $row['lst_id'];
             }
@@ -356,18 +349,14 @@ class TableRoles extends TableAccess
     {
         global $gL10n;
 
-        if ($columnName === 'rol_description' && $format === 'html')
-        {
+        if ($columnName === 'rol_description' && $format === 'html') {
             $value = nl2br(parent::getValue($columnName));
-        }
-        else
-        {
+        } else {
             $value = parent::getValue($columnName, $format);
         }
 
         // if text is a translation-id then translate it
-        if ($columnName === 'cat_name' && $format !== 'database' && Language::isTranslationStringId($value))
-        {
+        if ($columnName === 'cat_name' && $format !== 'database' && Language::isTranslationStringId($value)) {
             $value = $gL10n->get($value);
         }
 
@@ -391,29 +380,26 @@ class TableRoles extends TableAccess
     }
 
     /**
-     * This method checks if the current user is allowed to view this role. Therefore
+     * This method checks if the current user is allowed to view this role. Therefore,
      * the view properties of the role will be checked. If it's an event role than
-     * we also check if the user is a member of the roles that could participate to the event.
+     * we also check if the user is a member of the roles that could participate at the event.
      * @return bool Return true if the current user is allowed to view this role
      */
     public function isVisible()
     {
         global $gCurrentUser, $gValidLogin;
 
-        if (!$gValidLogin)
-        {
+        if (!$gValidLogin) {
             return false;
         }
 
         $rolId = (int) $this->getValue('rol_id');
 
-        if ($this->getValue('cat_name_intern') !== 'EVENTS')
-        {
+        if ($this->type !== TableRoles::ROLE_EVENT) {
             return $gCurrentUser->hasRightViewRole($rolId);
         }
 
-        if ((int) $this->getValue('rol_this_list_view') === 0)
-        {
+        if ((int) $this->getValue('rol_view_memberships') === 0) {
             return false;
         }
 
@@ -428,35 +414,67 @@ class TableRoles extends TableAccess
     }
 
     /**
-     * Save all changed columns of the recordset in table of database. Therefore the class remembers if it's
+     * Reads a record out of the table in database selected by the conditions of the param **$sqlWhereCondition** out of the table.
+     * If the sql find more than one record the method returns **false**.
+     * Per default all columns of the default table will be read and stored in the object.
+     * If one record is found than the type of the role (ROLE_GROUP or ROLE_EVENT) is set.
+     * @param string           $sqlWhereCondition Conditions for the table to select one record
+     * @param array<int,mixed> $queryParams       The query params for the prepared statement
+     * @return bool Returns **true** if one record is found
+     * @see TableAccess#readDataById
+     * @see TableAccess#readDataByUuid
+     * @see TableAccess#readDataByColumns
+     */
+    protected function readData($sqlWhereCondition, array $queryParams = array())
+    {
+        if (parent::readData($sqlWhereCondition, $queryParams)) {
+            if($this->getValue('cat_name_intern') === 'EVENTS') {
+                $this->setType(TableRoles::ROLE_EVENT);
+            } else {
+                $this->setType(TableRoles::ROLE_GROUP);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Save all changed columns of the recordset in table of database. Therefore, the class remembers if it's
      * a new record or if only an update is necessary. The update statement will only update the changed columns.
-     * If the table has columns for creator or editor than these column with their timestamp will be updated.
+     * If the table has columns for creator or editor than these columns with their timestamp will be updated.
      * For new records the organization and ip address will be set per default.
      * @param bool $updateFingerPrint Default **true**. Will update the creator or editor of the recordset if table has columns like **usr_id_create** or **usr_id_changed**
      * @return bool If an update or insert into the database was done then return true, otherwise false.
      */
     public function save($updateFingerPrint = true)
     {
-        global $gCurrentSession;
+        global $gCurrentSession, $gCurrentUser;
 
         $fieldsChanged = $this->columnsValueChanged;
 
+        // the right to edit roles should only be checked for group roles and not for event roles
+        if (!$this->saveChangesWithoutRights
+        && $this->type === TableRoles::ROLE_GROUP
+        && !in_array((int) $this->getValue('rol_cat_id'), $gCurrentUser->getAllEditableCategories('ROL'), true)) {
+            throw new AdmException('Role could not be saved because you are not allowed to edit roles of this category.');
+        }
+
         $returnValue = parent::save($updateFingerPrint);
 
-        // Nach dem Speichern noch pruefen, ob Userobjekte neu eingelesen werden muessen,
-        if ($fieldsChanged && $gCurrentSession instanceof Session)
-        {
+        // after saving check if user objects have to be read in again
+        if ($fieldsChanged && $gCurrentSession instanceof Session) {
             // all active users must renew their user data because maybe their
-            // rights have been changed if they where members of this role
-            $gCurrentSession->renewUserObject();
+            // rights have been changed if they were members of this role
+            $gCurrentSession->reloadAllSessions();
         }
 
         return $returnValue;
     }
 
     /**
-     * aktuelle Rolle wird auf aktiv gesetzt
-     * @return bool
+     * Set the current role active.
+     * @return bool Returns **true** if the role could be set to active.
      */
     public function setActive()
     {
@@ -464,11 +482,18 @@ class TableRoles extends TableAccess
     }
 
     /**
-     * aktuelle Rolle wird auf inaktiv gesetzt
-     * @return bool
+     * Set the current role inactive.
+     * Administrator and event roles could not be set to inactive.
+     * @return bool Returns **true** if the role was set to inactive.
+     * @throws AdmException
      */
-    public function setInactive()
+    public function setInactive(): bool
     {
+        if ($this->getValue('rol_administrator')) {
+            throw new AdmException('Administrator role cannot be set to inactive.');
+        } elseif ($this->getValue('cat_name_intern') === 'EVENTS') {
+            throw new AdmException('Event role cannot be set to inactive.');
+        }
         return $this->toggleValid(false);
     }
 
@@ -483,41 +508,54 @@ class TableRoles extends TableAccess
      */
     public function setValue($columnName, $newValue, $checkValue = true)
     {
-        global $gCurrentOrganization, $gL10n, $gCurrentUser;
+        global $gL10n, $gCurrentUser;
 
-        if($checkValue)
-        {
-            if($columnName === 'rol_cat_id' && isset($gCurrentUser) && $gCurrentUser instanceof User)
-            {
-                $category = new TableCategory($this->db, $newValue);
-
-                if(!$category->isVisible() || $category->getValue('cat_type') !== 'ROL')
-                {
-                    throw new AdmException('Category of the role '. $this->getValue('dat_name'). ' could not be set
-                        because the category is not visible to the current user and current organization.');
+        if ($checkValue) {
+            if ($columnName === 'rol_cat_id' && isset($gCurrentUser) && $gCurrentUser instanceof User) {
+                $category = new TableCategory($this->db);
+                if(is_int($newValue)) {
+                    if(!$category->readDataById($newValue)) {
+                        throw new AdmException('No Category with the given id '. $newValue. ' was found in the database.');
+                    }
+                } else {
+                    if(!$category->readDataByUuid($newValue)) {
+                        throw new AdmException('No Category with the given uuid '. $newValue. ' was found in the database.');
+                    }
+                    $newValue = $category->getValue('cat_id');
                 }
             }
 
-            if ($columnName === 'rol_default_registration' && $newValue == '0' && $this->dbColumns[$columnName] == '1')
-            {
+            if ($columnName === 'rol_default_registration' && $newValue == '0' && $this->dbColumns[$columnName] == '1') {
                 // checks if at least one other role has this flag
                 $sql = 'SELECT COUNT(*) AS count
                           FROM '.TBL_ROLES.'
                     INNER JOIN '.TBL_CATEGORIES.'
                             ON cat_id = rol_cat_id
-                         WHERE rol_default_registration = 1
+                         WHERE rol_default_registration = true
                            AND rol_id    <> ? -- $this->getValue(\'rol_id\')
-                           AND cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')';
-                $pdoStatement = $this->db->queryPrepared($sql, array((int) $this->getValue('rol_id'), (int) $gCurrentOrganization->getValue('org_id')));
+                           AND cat_org_id = ? -- $GLOBALS[\'gCurrentOrgId\']';
+                $pdoStatement = $this->db->queryPrepared($sql, array((int) $this->getValue('rol_id'), $GLOBALS['gCurrentOrgId']));
 
-                if ((int) $pdoStatement->fetchColumn() === 0)
-                {
+                if ((int) $pdoStatement->fetchColumn() === 0) {
                     throw new AdmException('SYS_NO_DEFAULT_ROLE', array($gL10n->get('SYS_DEFAULT_ASSIGNMENT_REGISTRATION')));
                 }
             }
         }
 
         return parent::setValue($columnName, $newValue, $checkValue);
+    }
+
+    /**
+     * Set the type of the role. This could be a role that represents a group ROLE_GROUP that will be used in the
+     * groups and roles module or participants of an event ROLE_EVENT that will be used within the event module.
+     * @param int $type Represents the type of the role that could be ROLE_GROUP (default) or ROLE_EVENT
+     * @return void
+     */
+    public function setType($type)
+    {
+        if($type === TableRoles::ROLE_GROUP || $type === TableRoles::ROLE_EVENT) {
+            $this->type = $type;
+        }
     }
 
     /**
@@ -528,17 +566,16 @@ class TableRoles extends TableAccess
     {
         global $gCurrentSession;
 
-        // die Systemrollem sind immer aktiv
-        if ((int) $this->getValue('rol_system') === 0)
-        {
+        // system roles are always active and could therefore not be toggled
+        if ((int) $this->getValue('rol_system') === 0) {
             $sql = 'UPDATE '.TBL_ROLES.'
                        SET rol_valid = ? -- $status
                      WHERE rol_id = ? -- $this->getValue(\'rol_id\')';
-            $this->db->queryPrepared($sql, array((int) $status, (int) $this->getValue('rol_id')));
+            $this->db->queryPrepared($sql, array((bool) $status, (int) $this->getValue('rol_id')));
 
             // all active users must renew their user data because maybe their
-            // rights have been changed if they where members of this role
-            $gCurrentSession->renewUserObject();
+            // rights have been changed if they were members of this role
+            $gCurrentSession->reloadAllSessions();
 
             return true;
         }

@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -13,7 +13,7 @@
  * When an object is created than the actual profile fields structure will
  * be read. In addition to this structure you can read the user values for
  * all fields if you call @c readUserData . If you read field values than
- * you will get the formated output. It's also possible to set user data and
+ * you will get the formatted output. It's also possible to set user data and
  * save this data to the database
  */
 class ProfileFields
@@ -35,7 +35,11 @@ class ProfileFields
      */
     protected $mUserId = 0;
     /**
-     * @var bool if true, than no value will be checked if method setValue is called
+     * @var string UUID of the current user of this object
+     */
+    protected $mUserUuid = '';
+    /**
+     * @var bool if true, no value will be checked if method setValue is called
      */
     protected $noValueCheck = false;
     /**
@@ -48,21 +52,20 @@ class ProfileFields
      * @param Database $database       Database object (should be **$gDb**)
      * @param int      $organizationId The id of the organization for which the profile field structure should be read
      */
-    public function __construct(Database $database, $organizationId)
+    public function __construct(Database $database, int $organizationId)
     {
         $this->db =& $database;
         $this->readProfileFields($organizationId);
     }
 
     /**
-     * An wakeup add the current database object to this class
+     * A wakeup add the current database object to this class
      */
     public function __wakeup()
     {
         global $gDb;
 
-        if ($gDb instanceof Database)
-        {
+        if ($gDb instanceof Database) {
             $this->db = $gDb;
         }
     }
@@ -75,6 +78,7 @@ class ProfileFields
     {
         $this->mUserData = array();
         $this->mUserId = 0;
+        $this->mUserUuid = '';
         $this->columnsValueChanged = false;
     }
 
@@ -87,14 +91,32 @@ class ProfileFields
         $this->db->startTransaction();
 
         // delete every entry from adm_users_data
-        foreach ($this->mUserData as $field)
-        {
+        foreach ($this->mUserData as $field) {
             $field->delete();
         }
 
         $this->mUserData = array();
 
         $this->db->endTransaction();
+    }
+
+    /**
+     * Create an array with all usf_id of profile fields that are editable to the current user in consideration
+     * if the current user is allowed to edit the profile or not.
+     * @param bool $allowedToEditProfile Flag if the user is allowed to edit the profile.
+     * @return array Returns an array with all usf_id of profile fields that are editable to the current user.
+     */
+    public function getEditableArray(bool $allowedToEditProfile = false)
+    {
+        $editableFields = array();
+
+        foreach ($this->mProfileFields as $field) {
+            if($this->isEditable($field->getValue('usf_name_intern'), $allowedToEditProfile)) {
+                $editableFields[] = $field->getValue('usf_id');
+            }
+        }
+
+        return $editableFields;
     }
 
     /**
@@ -106,40 +128,66 @@ class ProfileFields
     }
 
     /**
-     * returns for a fieldname intern (usf_name_intern) the value of the column from table adm_user_fields
+     * Returns for a field name intern (usf_name_intern) the value of the column from table adm_user_fields.
+     * Optional a format could be set.
      * @param string $fieldNameIntern Expects the **usf_name_intern** of table **adm_user_fields**
      * @param string $column          The column name of **adm_user_field** for which you want the value
-     * @param string $format          Optional the format (is necessary for timestamps)
-     * @return mixed
+     * @param string $format    For column **usf_value_list** the following format is accepted:
+     *                           * **database** returns database value of **usf_value_list** without any transformations
+     *                           * **text** extract only text from **usf_value_list**, image infos will be ignored
+     *                           * For date or timestamp columns the format should be the date/time format e.g. **d.m.Y = '02.04.2011'**
+     * @return string Returns for the profile field with the given uuid the value.
      */
-    public function getProperty($fieldNameIntern, $column, $format = '')
+    public function getProperty(string $fieldNameIntern, string $column, string $format = '')
     {
-        if (array_key_exists($fieldNameIntern, $this->mProfileFields))
-        {
+        if (array_key_exists($fieldNameIntern, $this->mProfileFields)) {
             return $this->mProfileFields[$fieldNameIntern]->getValue($column, $format);
         }
 
         // if id-field not exists then return zero
-        if (str_contains($column, '_id'))
-        {
+        if (str_contains($column, '_id')) {
             return 0;
         }
         return '';
     }
 
     /**
-     * returns for field id (usf_id) the value of the column from table adm_user_fields
+     * Returns for field id (usf_id) the value of the column from table adm_user_fields.
+     * Optional a format could be set.
      * @param int    $fieldId Expects the **usf_id** of table **adm_user_fields**
      * @param string $column  The column name of **adm_user_field** for which you want the value
-     * @param string $format  Optional the format (is necessary for timestamps)
-     * @return string
+     * @param string $format    For column **usf_value_list** the following format is accepted:
+     *                           * **database** returns database value of **usf_value_list** without any transformations
+     *                           * **text** extract only text from **usf_value_list**, image infos will be ignored
+     *                           * For date or timestamp columns the format should be the date/time format e.g. **d.m.Y = '02.04.2011'**
+     * @return string Returns for the profile field with the given uuid the value.
      */
-    public function getPropertyById($fieldId, $column, $format = '')
+    public function getPropertyById(int $fieldId, string $column, string $format = '')
     {
-        foreach ($this->mProfileFields as $field)
-        {
-            if ((int) $field->getValue('usf_id') === (int) $fieldId)
-            {
+        foreach ($this->mProfileFields as $field) {
+            if ((int) $field->getValue('usf_id') === $fieldId) {
+                return $field->getValue($column, $format);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Returns for field uuid (usf_uuid) the value of the column from table adm_user_fields.
+     * Optional a format could be set.
+     * @param string $fieldUuid Expects the **usf_id** of table **adm_user_fields**
+     * @param string $column    The column name of **adm_user_field** for which you want the value
+     * @param string $format    For column **usf_value_list** the following format is accepted:
+     *                           * **database** returns database value of **usf_value_list** without any transformations
+     *                           * **text** extract only text from **usf_value_list**, image infos will be ignored
+     *                           * For date or timestamp columns the format should be the date/time format e.g. **d.m.Y = '02.04.2011'**
+     * @return string Returns for the profile field with the given uuid the value.
+     */
+    public function getPropertyByUuid(string $fieldUuid, string $column, string $format = '')
+    {
+        foreach ($this->mProfileFields as $field) {
+            if ($field->getValue('usf_uuid') === $fieldUuid) {
                 return $field->getValue($column, $format);
             }
         }
@@ -149,75 +197,66 @@ class ProfileFields
 
     /**
      * Returns the value of the field in html format with consideration of all layout parameters
-     * @param string     $fieldNameIntern Internal profile field name of the field that should be html formated
-     * @param string|int $value           The value that should be formated must be commited so that layout
+     * @param string     $fieldNameIntern Internal profile field name of the field that should be html formatted
+     * @param string|int $value           The value that should be formatted must be committed so that layout
      *                                    is also possible for values that aren't stored in database
-     * @param int        $value2          An optional parameter that is necessary for some special fields like email to commit the user id
-     * @return string Returns an html formated string that considered the profile field settings
+     * @param string     $value2          An optional parameter that is necessary for some special fields like email to commit the user uuid
+     * @return string Returns a html formatted string that considered the profile field settings
      */
-    public function getHtmlValue($fieldNameIntern, $value, $value2 = null)
+    public function getHtmlValue($fieldNameIntern, $value, $value2 = '')
     {
-        global $gSettingsManager;
+        global $gSettingsManager, $gL10n;
 
-        if (!array_key_exists($fieldNameIntern, $this->mProfileFields))
-        {
+        if (!array_key_exists($fieldNameIntern, $this->mProfileFields)) {
             return $value;
         }
 
         // if value is empty or null, then do nothing
-        if ($value != '')
-        {
+        if ($value != '') {
             // create html for each field type
+            $value = SecurityUtils::encodeHTML(StringUtils::strStripTags($value));
             $htmlValue = $value;
 
             $usfType = $this->mProfileFields[$fieldNameIntern]->getValue('usf_type');
-            switch ($usfType)
-            {
+            switch ($usfType) {
                 case 'CHECKBOX':
-                    if ($value == 1)
-                    {
-                        $htmlValue = '<i class="fas fa-check-square"></i>';
-                    }
-                    else
-                    {
-                        $htmlValue = '<i class="fas fa-square"></i>';
+                    if ($value == 1) {
+                        $htmlValue = '<span class="fa-stack">
+                            <i class="fas fa-square-full fa-stack-1x"></i>
+                            <i class="fas fa-check-square fa-stack-1x fa-inverse"></i>
+                        </span>';
+                    } else {
+                        $htmlValue = '<span class="fa-stack">
+                            <i class="fas fa-square-full fa-stack-1x"></i>
+                            <i class="fas fa-square fa-stack-1x fa-inverse"></i>
+                        </span>';
                     }
                     break;
                 case 'DATE':
-                    if ($value !== '')
-                    {
-                        // date must be formated
-                        $date = \DateTime::createFromFormat('Y-m-d', $value);
-                        if ($date instanceof \DateTime)
-                        {
+                    if ($value !== '') {
+                        // date must be formatted
+                        $date = DateTime::createFromFormat('Y-m-d', $value);
+                        if ($date instanceof DateTime) {
                             $htmlValue = $date->format($gSettingsManager->getString('system_date'));
                         }
                     }
                     break;
                 case 'EMAIL':
                     // the value in db is only the position, now search for the text
-                    if ($value !== '')
-                    {
-                        if (!$gSettingsManager->getBool('enable_mail_module'))
-                        {
+                    if ($value !== '') {
+                        if (!$gSettingsManager->getBool('enable_mail_module')) {
                             $emailLink = 'mailto:' . $value;
-                        }
-                        else
-                        {
+                        } else {
                             // set value2 to user id because we need a second parameter in the link to mail module
-                            if ($value2 === null)
-                            {
-                                $value2 = $this->mUserId;
+                            if ($value2 === '') {
+                                $value2 = $this->mUserUuid;
                             }
 
-                            $emailLink = SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/messages/messages_write.php', array('usr_id' => $value2));
+                            $emailLink = SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/messages/messages_write.php', array('user_uuid' => $value2));
                         }
-                        if (strlen($value) > 30)
-                        {
+                        if (strlen($value) > 30) {
                             $htmlValue = '<a href="' . $emailLink . '" title="' . $value . '">' . substr($value, 0, 30) . '...</a>';
-                        }
-                        else
-                        {
+                        } else {
                             $htmlValue = '<a href="' . $emailLink . '" title="' . $value . '" style="overflow: visible; display: inline;">' . $value . '</a>';
                         }
                     }
@@ -227,22 +266,19 @@ class ProfileFields
                     $arrListValuesWithKeys = array(); // array with list values and keys that represents the internal value
 
                     // first replace windows new line with unix new line and then create an array
-                    $valueFormated = str_replace("\r\n", "\n", $this->mProfileFields[$fieldNameIntern]->getValue('usf_value_list', 'database'));
-                    $arrListValues = explode("\n", $valueFormated);
+                    $valueFormatted = str_replace("\r\n", "\n", $this->mProfileFields[$fieldNameIntern]->getValue('usf_value_list', 'database'));
+                    $arrListValues = explode("\n", $valueFormatted);
 
-                    foreach ($arrListValues as $index => $listValue)
-                    {
+                    foreach ($arrListValues as $index => $listValue) {
                         // if value is imagefile or imageurl then show image
-                        if ($usfType === 'RADIO_BUTTON' && (Image::isFontAwesomeIcon($listValue)
-                        || StringUtils::strContains($listValue, '.png', false) || StringUtils::strContains($listValue, '.jpg', false))) // TODO: simplify check for images
-                        {
+                        if ($usfType === 'RADIO_BUTTON'
+                            && (Image::isFontAwesomeIcon($listValue)
+                                || StringUtils::strContains($listValue, '.png', false)
+                                || StringUtils::strContains($listValue, '.jpg', false))) { // TODO: simplify check for images
                             // if there is imagefile and text separated by | then explode them
-                            if (str_contains($listValue, '|'))
-                            {
+                            if (str_contains($listValue, '|')) {
                                 list($listValueImage, $listValueText) = explode('|', $listValue);
-                            }
-                            else
-                            {
+                            } else {
                                 $listValueImage = $listValue;
                                 $listValueText  = $this->getValue('usf_name');
                             }
@@ -261,27 +297,31 @@ class ProfileFields
                         $arrListValuesWithKeys[++$index] = $listValue;
                     }
 
-                    $htmlValue = $arrListValuesWithKeys[$value];
+                    if(count($arrListValuesWithKeys) > 0 && !empty($value)) {
+                        if(array_key_exists($value, $arrListValuesWithKeys)) {
+                            $htmlValue = $arrListValuesWithKeys[$value];
+                        } else {
+                            $htmlValue = '<i>'.$gL10n->get('SYS_DELETED_ENTRY').'</i>';
+                        }
+                    } else {
+                        $htmlValue = '';
+                    }
                     break;
                 case 'PHONE':
-                    if ($value !== '')
-                    {
+                    if ($value !== '') {
                         $htmlValue = '<a href="tel:' . str_replace(array('-', '/', ' ', '(', ')'), '', $value) . '">' . $value . '</a>';
                     }
                     break;
                 case 'URL':
-                    if ($value !== '')
-                    {
+                    if ($value !== '') {
                         $displayValue = $value;
 
                         // trim "http://", "https://", "//"
-                        if (str_contains($displayValue, '//'))
-                        {
+                        if (str_contains($displayValue, '//')) {
                             $displayValue = substr($displayValue, strpos($displayValue, '//') + 2);
                         }
                         // trim after the 35th char
-                        if (strlen($value) > 35)
-                        {
+                        if (strlen($value) > 35) {
                             $displayValue = substr($displayValue, 0, 35) . '...';
                         }
                         $htmlValue = '<a href="' . $value . '" target="_blank" title="' . $value . '">' . $displayValue . '</a>';
@@ -294,38 +334,33 @@ class ProfileFields
 
             // if field has url then create a link
             $usfUrl = $this->mProfileFields[$fieldNameIntern]->getValue('usf_url');
-            if ($usfUrl !== '')
-            {
-                if ($fieldNameIntern === 'FACEBOOK' && is_numeric($value))
-                {
+            if ($usfUrl !== '') {
+                if ($fieldNameIntern === 'FACEBOOK' && is_numeric($value)) {
                     // facebook has two different profile urls (id and facebook name),
                     // we could only store one way in database (facebook name) and the other (id) is defined here
                     $htmlValue = '<a href="' . SecurityUtils::encodeUrl('https://www.facebook.com/profile.php', array('id' => $value)) . '" target="_blank">' . $htmlValue . '</a>';
-                }
-                else
-                {
+                } else {
                     $htmlValue = '<a href="' . $usfUrl . '" target="_blank">' . $htmlValue . '</a>';
                 }
 
                 // replace a variable in url with user value
-                if (str_contains($usfUrl, '#user_content#'))
-                {
+                if (str_contains($usfUrl, '#user_content#')) {
                     $htmlValue = str_replace('#user_content#', $value, $htmlValue);
                 }
             }
             $value = $htmlValue;
         }
         // special case for type CHECKBOX and no value is there, then show unchecked checkbox
-        else
-        {
-            if ($this->mProfileFields[$fieldNameIntern]->getValue('usf_type') === 'CHECKBOX')
-            {
-                $value = '<i class="fas fa-square"></i>';
+        else {
+            if ($this->mProfileFields[$fieldNameIntern]->getValue('usf_type') === 'CHECKBOX') {
+                $value = '<span class="fa-stack">
+                    <i class="fas fa-square-full fa-stack-1x"></i>
+                    <i class="fas fa-square fa-stack-1x fa-inverse"></i>
+                </span>';
 
                 // if field has url then create a link
                 $usfUrl = $this->mProfileFields[$fieldNameIntern]->getValue('usf_url');
-                if ($usfUrl !== '')
-                {
+                if ($usfUrl !== '') {
                     $value = '<a href="' . $usfUrl . '" target="_blank">' . $value . '</a>';
                 }
             }
@@ -335,62 +370,49 @@ class ProfileFields
     }
 
     /**
-     * Returns the user value for this column.
+     * Returns the user value for this column. Within a dropdown or radio button field the format could be set to **text** so
+     * an icon will not be shown.
      * @param string $fieldNameIntern Expects the **usf_name_intern** of the field whose value should be read
-     * @param string $format          Returns the field value in a special format **text**, **html**, **database**
+     * @param string $format          Returns the field value in a special format e.g. **html**, **database**
      *                                or datetime (detailed description in method description)
      *                                * 'd.m.Y' : a date or timestamp field accepts the format of the PHP date() function
      *                                * 'html'  : returns the value in html-format if this is necessary for that field type.
      *                                * 'database' : returns the value that is stored in database with no format applied
      * @return string|int|bool Returns the value for the column.
      */
-    public function getValue($fieldNameIntern, $format = '')
+    public function getValue(string $fieldNameIntern, string $format = '')
     {
-        global $gL10n, $gSettingsManager;
-
         $value = '';
 
         // exists a profile field with that name ?
         // then check if user has a data object for this field and then read value of this object
         if (array_key_exists($fieldNameIntern, $this->mProfileFields)
-        &&  array_key_exists($this->mProfileFields[$fieldNameIntern]->getValue('usf_id'), $this->mUserData))
-        {
+        &&  array_key_exists($this->mProfileFields[$fieldNameIntern]->getValue('usf_id'), $this->mUserData)) {
             $value = $this->mUserData[$this->mProfileFields[$fieldNameIntern]->getValue('usf_id')]->getValue('usd_value', $format);
 
-            if ($format === 'database')
-            {
+            if ($format === 'database') {
                 return $value;
             }
 
-            if ($fieldNameIntern === 'COUNTRY')
-            {
-                if ($value !== '')
-                {
+            if ($fieldNameIntern === 'COUNTRY') {
+                if ($value !== '') {
                     // read the language name of the country
-                    $value = $gL10n->getCountryName($value);
+                    $value = $GLOBALS['gL10n']->getCountryName($value);
                 }
-            }
-            else
-            {
-                switch ($this->mProfileFields[$fieldNameIntern]->getValue('usf_type'))
-                {
+            } else {
+                switch ($this->mProfileFields[$fieldNameIntern]->getValue('usf_type')) {
                     case 'DATE':
-                        if ($value !== '')
-                        {
+                        if ($value !== '') {
                             // if date field then the current date format must be used
-                            $date = \DateTime::createFromFormat('Y-m-d', $value);
-                            if ($date === false)
-                            {
+                            $date = DateTime::createFromFormat('Y-m-d', $value);
+                            if ($date === false) {
                                 return $value;
                             }
 
                             // if no format or html is set then show date format from Admidio settings
-                            if ($format === '' || $format === 'html')
-                            {
-                                $value = $date->format($gSettingsManager->getString('system_date'));
-                            }
-                            else
-                            {
+                            if ($format === '' || $format === 'html') {
+                                $value = $date->format($GLOBALS['gSettingsManager']->getString('system_date'));
+                            } else {
                                 $value = $date->format($format);
                             }
                         }
@@ -398,8 +420,7 @@ class ProfileFields
                     case 'DROPDOWN': // fallthrough
                     case 'RADIO_BUTTON':
                         // the value in db is only the position, now search for the text
-                        if ($value > 0 && $format !== 'html')
-                        {
+                        if ($value > 0 && $format !== 'html') {
                             $arrListValues = $this->mProfileFields[$fieldNameIntern]->getValue('usf_value_list', $format);
                             $value = $arrListValues[$value];
                         }
@@ -409,21 +430,54 @@ class ProfileFields
         }
 
         // get html output for that field type and value
-        if ($format === 'html')
-        {
-            $value = $this->getHtmlValue($fieldNameIntern, $value);
+        if ($format === 'html') {
+            // decode html special chars because getHtmlValue encodes them again
+            $value = $this->getHtmlValue($fieldNameIntern, htmlspecialchars_decode($value, ENT_QUOTES | ENT_HTML5));
         }
 
         return $value;
     }
 
     /**
+     * Create an array with all usf_id of profile fields that are visible to the current user in consideration
+     * if the current user is allowed to edit the profile or not.
+     * @param bool $allowedToEditProfile Flag if the user is allowed to edit the profile.
+     * @return array Returns an array with all usf_id of profile fields that are visible to the current user.
+     */
+    public function getVisibleArray(bool $allowedToEditProfile = false): array
+    {
+        $visibleFields = array();
+
+        foreach ($this->mProfileFields as $field) {
+            if($this->isVisible($field->getValue('usf_name_intern'), $allowedToEditProfile)) {
+                $visibleFields[] = $field->getValue('usf_id');
+            }
+        }
+
+        return $visibleFields;
+    }
+
+    /**
      * returns true if a column of user table or profile fields has changed
      * @return bool
      */
-    public function hasColumnsValueChanged()
+    public function hasColumnsValueChanged(): bool
     {
         return $this->columnsValueChanged;
+    }
+
+    /**
+     * Checks if a profile field must have a value. This check is done against the configuration of that
+     * profile field. It is possible that the input is always required or only in a registration form or only in
+     * the own profile. Another case is always a required value except within a registration form.
+     * @param string $fieldNameIntern Expects the **usf_name_intern** of the field that should be checked.
+     * @param int $userId Optional the ID of the user for which the required profile field should be checked.
+     * @param bool $registration Set to **true** if the check should be done for a registration form. The default is **false**
+     * @return bool Returns true if the profile field has a required input.
+     */
+    public function hasRequiredInput(string $fieldNameIntern, int $userId = 0, bool $registration = false): bool
+    {
+        return $this->mProfileFields[$fieldNameIntern]->hasRequiredInput($userId, $registration);
     }
 
     /**
@@ -437,12 +491,10 @@ class ProfileFields
      *                                    set if you are not in a user context.
      * @return bool Return true if the current user is allowed to view this profile field
      */
-    public function isEditable($fieldNameIntern, $allowedToEditProfile)
+    public function isEditable(string $fieldNameIntern, bool $allowedToEditProfile): bool
     {
-        global $gCurrentUser;
-
         return $this->isVisible($fieldNameIntern, $allowedToEditProfile)
-        && ($gCurrentUser->editUsers() || $this->mProfileFields[$fieldNameIntern]->getValue('usf_disabled') == 0);
+        && ($GLOBALS['gCurrentUser']->editUsers() || $this->mProfileFields[$fieldNameIntern]->getValue('usf_disabled') == 0);
     }
 
     /**
@@ -455,16 +507,25 @@ class ProfileFields
      *                                    set if you are not in a user context.
      * @return bool Return true if the current user is allowed to view this profile field
      */
-    public function isVisible($fieldNameIntern, $allowedToEditProfile = false)
+    public function isVisible(string $fieldNameIntern, bool $allowedToEditProfile = false): bool
     {
-        global $gCurrentUser;
+        if(!array_key_exists($fieldNameIntern, $this->mProfileFields)) {
+            return false;
+        }
+
+        // check a special case where the field is only visible for users who can edit the profile but must therefore
+        // have the right to edit all users
+        if (!$GLOBALS['gCurrentUser']->editUsers()
+        && $this->mProfileFields[$fieldNameIntern]->getValue('usf_disabled') == 1
+        && $this->mProfileFields[$fieldNameIntern]->getValue('usf_hidden') == 1) {
+            return false;
+        }
 
         // check if the current user could view the category of the profile field
         // if it's the own profile than we check if user could edit his profile and if so he could view all fields
         // check if the profile field is only visible for users that could edit this
-        return ((array_key_exists($fieldNameIntern, $this->mProfileFields) && $this->mProfileFields[$fieldNameIntern]->isVisible())
-                || (int) $gCurrentUser->getValue('usr_id') === $this->mUserId)
-            && ($allowedToEditProfile || $this->mProfileFields[$fieldNameIntern]->getValue('usf_hidden') == 0);
+        return ($this->mProfileFields[$fieldNameIntern]->isVisible() || $GLOBALS['gCurrentUserId'] === $this->mUserId)
+        && ($allowedToEditProfile || $this->mProfileFields[$fieldNameIntern]->getValue('usf_hidden') == 0);
     }
 
     /**
@@ -482,7 +543,7 @@ class ProfileFields
      * @param int $organizationId The id of the organization for which the profile fields
      *                            structure should be read.
      */
-    public function readProfileFields($organizationId)
+    public function readProfileFields(int $organizationId)
     {
         // first initialize existing data
         $this->mProfileFields = array();
@@ -495,13 +556,11 @@ class ProfileFields
                     ON cat_id = usf_cat_id
                  WHERE cat_org_id IS NULL
                     OR cat_org_id = ? -- $organizationId
-              ORDER BY cat_sequence ASC, usf_sequence ASC';
+              ORDER BY cat_sequence, usf_sequence';
         $userFieldsStatement = $this->db->queryPrepared($sql, array($organizationId));
 
-        while ($row = $userFieldsStatement->fetch())
-        {
-            if (!array_key_exists($row['usf_name_intern'], $this->mProfileFields))
-            {
+        while ($row = $userFieldsStatement->fetch()) {
+            if (!array_key_exists($row['usf_name_intern'], $this->mProfileFields)) {
                 $this->mProfileFields[$row['usf_name_intern']] = new TableUserField($this->db);
             }
             $this->mProfileFields[$row['usf_name_intern']]->setArray($row);
@@ -516,33 +575,34 @@ class ProfileFields
      * @param int $organizationId The id of the organization for which the profile fields
      *                            structure should be read if necessary.
      */
-    public function readUserData($userId, $organizationId)
+    public function readUserData(int $userId, int $organizationId)
     {
-        if (count($this->mProfileFields) === 0)
-        {
+        if (count($this->mProfileFields) === 0) {
             $this->readProfileFields($organizationId);
         }
 
-        if ($userId > 0)
-        {
+        if ($userId > 0) {
             // remember the user
-            $this->mUserId = (int) $userId;
+            $this->mUserId = $userId;
 
             // read all user data of user
             $sql = 'SELECT *
-                      FROM '.TBL_USER_DATA.'
+                      FROM '.TBL_USERS.'
+                INNER JOIN '.TBL_USER_DATA.'
+                        ON usd_usr_id = usr_id
                 INNER JOIN '.TBL_USER_FIELDS.'
                         ON usf_id = usd_usf_id
-                     WHERE usd_usr_id = ? -- $userId';
+                     WHERE usr_id = ? -- $userId';
             $userDataStatement = $this->db->queryPrepared($sql, array($userId));
 
-            while ($row = $userDataStatement->fetch())
-            {
-                if (!array_key_exists($row['usd_usf_id'], $this->mUserData))
-                {
+            while ($row = $userDataStatement->fetch()) {
+                if (!array_key_exists($row['usd_usf_id'], $this->mUserData)) {
                     $this->mUserData[$row['usd_usf_id']] = new TableAccess($this->db, TBL_USER_DATA, 'usd');
                 }
                 $this->mUserData[$row['usd_usf_id']]->setArray($row);
+                if (isset($row['usr_uuid'])) {
+                    $this->mUserUuid = $row['usr_uuid'];
+                }
             }
         }
     }
@@ -551,89 +611,89 @@ class ProfileFields
      * save data of every user field
      * @param int $userId id is necessary if new user, that id was not known before
      */
-    public function saveUserData($userId)
+    public function saveUserData(int $userId)
     {
         $this->db->startTransaction();
 
-        foreach ($this->mUserData as $value)
-        {
+        foreach ($this->mUserData as $value) {
             // if new user than set user id
-            if ($this->mUserId === 0)
-            {
+            if ($this->mUserId === 0) {
                 $value->setValue('usd_usr_id', $userId);
             }
 
             // if value exists and new value is empty then delete entry
-            if ($value->getValue('usd_id') > 0 && $value->getValue('usd_value') === '')
-            {
+            if ($value->getValue('usd_id') > 0 && $value->getValue('usd_value') === '') {
                 $value->delete();
-            }
-            else
-            {
+            } else {
                 $value->save();
             }
         }
 
         $this->columnsValueChanged = false;
-        $this->mUserId = (int) $userId;
+        $this->mUserId = $userId;
 
         $this->db->endTransaction();
     }
 
     /**
-     * set value for column usd_value of field
+     * Set a value for a profile field. The value will be checked against typical conditions of the data type and
+     * also against the custom regex if this is set. If an invalid value is set an AdmException will be thrown.
      * @param string $fieldNameIntern Expects the **usf_name_intern** of the field that should get a new value.
-     * @param mixed  $fieldValue
-     * @return bool
+     * @param mixed  $fieldValue      The new value that should be stored in the profile field.
+     * @param bool   $checkValue      The value will be checked if it's valid. If set to **false** than the value will
+     *                                not be checked.
+     * @throws AdmException If an invalid value should be set.
+     *                      exception->text contains a string with the reason why the login failed.
+     * @return bool Return true if the value is valid and would be accepted otherwise return false or an exception.
      */
-    public function setValue($fieldNameIntern, $fieldValue)
+    public function setValue(string $fieldNameIntern, $fieldValue, $checkValue = true): bool
     {
-        global $gSettingsManager;
+        global $gSettingsManager, $gL10n;
 
-        if (!array_key_exists($fieldNameIntern, $this->mProfileFields))
-        {
-            return false;
+        if (!array_key_exists($fieldNameIntern, $this->mProfileFields)) {
+            throw new AdmException('Profile field ' . $fieldNameIntern . ' doesn\'t exists!');
         }
 
-        if ($fieldValue !== '')
-        {
-            switch ($this->mProfileFields[$fieldNameIntern]->getValue('usf_type'))
-            {
+        if (!empty($fieldValue) && $checkValue) {
+            switch ($this->mProfileFields[$fieldNameIntern]->getValue('usf_type')) {
                 case 'CHECKBOX':
-                    // Checkbox darf nur 0 oder 1 haben
-                    if (!$this->noValueCheck && $fieldValue !== '0' && $fieldValue !== '1')
-                    {
-                        return false;
+                    // Checkbox may only have 0 or 1
+                    if (!$this->noValueCheck && $fieldValue !== '0' && $fieldValue !== '1') {
+                        throw new AdmException($gL10n->get('SYS_FIELD_INVALID_INPUT', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
                     }
                     break;
                 case 'DATE':
-                    // Datum muss gueltig sein und formatiert werden
-                    $date = \DateTime::createFromFormat($gSettingsManager->getString('system_date'), $fieldValue);
-                    if ($date === false)
-                    {
-                        $date = \DateTime::createFromFormat('Y-m-d', $fieldValue);
-                        if ($date === false && !$this->noValueCheck)
-                        {
-                            return false;
+                    // Date must be valid and formatted
+                    $date = DateTime::createFromFormat($gSettingsManager->getString('system_date'), $fieldValue);
+                    if ($date === false) {
+                        $date = DateTime::createFromFormat('Y-m-d', $fieldValue);
+                        if ($date === false && !$this->noValueCheck) {
+                            throw new AdmException($gL10n->get('SYS_DATE_INVALID', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'), $gSettingsManager->getString('system_date'))));
                         }
-                    }
-                    else
-                    {
+                    } else {
                         $fieldValue = $date->format('Y-m-d');
                     }
                     break;
+                case 'DROPDOWN':
+                case 'RADIO_BUTTON':
+                    if ($fieldValue !== 0) { // 0 is the empty value for radio button
+                        if (!$this->noValueCheck && !is_numeric($fieldValue)) {
+                            throw new AdmException($gL10n->get('SYS_FIELD_INVALID_INPUT', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
+                        } elseif (!array_key_exists($fieldValue, $this->mProfileFields[$fieldNameIntern]->getValue('usf_value_list'))) {
+                            throw new AdmException($gL10n->get('SYS_FIELD_INVALID_INPUT', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
+                        }
+                    }
+                    break;
                 case 'EMAIL':
-                    // Email darf nur gueltige Zeichen enthalten und muss einem festen Schema entsprechen
-                    if (!$this->noValueCheck && !StringUtils::strValidCharacters($fieldValue, 'email'))
-                    {
-                        return false;
+                    // Email may only contain valid characters and must conform to a fixed scheme
+                    if (!$this->noValueCheck && !StringUtils::strValidCharacters($fieldValue, 'email')) {
+                        throw new AdmException($gL10n->get('SYS_EMAIL_INVALID', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
                     }
                     break;
                 case 'NUMBER':
                     // A number must be numeric
-                    if (!$this->noValueCheck && !is_numeric($fieldValue))
-                    {
-                        return false;
+                    if (!$this->noValueCheck && !is_numeric($fieldValue)) {
+                        throw new AdmException($gL10n->get('PRO_FIELD_NUMERIC', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
                     }
 
                     // numbers don't have leading zero
@@ -641,9 +701,8 @@ class ProfileFields
                     break;
                 case 'DECIMAL':
                     // A decimal must be numeric
-                    if (!$this->noValueCheck && !is_numeric(str_replace(',', '.', $fieldValue)))
-                    {
-                        return false;
+                    if (!$this->noValueCheck && !is_numeric(str_replace(',', '.', $fieldValue))) {
+                        throw new AdmException($gL10n->get('PRO_FIELD_NUMERIC', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
                     }
 
                     // decimals don't have leading zero
@@ -651,38 +710,42 @@ class ProfileFields
                     break;
                 case 'PHONE':
                     // check phone number for valid characters
-                    if (!$this->noValueCheck && !StringUtils::strValidCharacters($fieldValue, 'phone'))
-                    {
-                        return false;
+                    if (!$this->noValueCheck && !StringUtils::strValidCharacters($fieldValue, 'phone')) {
+                        throw new AdmException($gL10n->get('SYS_PHONE_INVALID_CHAR', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
                     }
                     break;
                 case 'URL':
                     $fieldValue = admFuncCheckUrl($fieldValue);
 
-                    if (!$this->noValueCheck && $fieldValue === false)
-                    {
-                        return false;
+                    if (!$this->noValueCheck && $fieldValue === false) {
+                        throw new AdmException($gL10n->get('SYS_PHONE_INVALID_CHAR', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
                     }
                     break;
             }
+
+            if($this->mProfileFields[$fieldNameIntern]->getValue('usf_regex') !== ''
+            && preg_match('/'.$this->mProfileFields[$fieldNameIntern]->getValue('usf_regex').'/', $fieldValue) === 0) {
+                throw new AdmException($gL10n->get('SYS_FIELD_INVALID_REGEX', array($this->mProfileFields[$fieldNameIntern]->getValue('usf_name'))));
+            }
+        }
+
+        if ($fieldNameIntern === 'COUNTRY') {
+            $gL10n->getCountryName($fieldValue);
         }
 
         $usfId = (int) $this->mProfileFields[$fieldNameIntern]->getValue('usf_id');
 
-        if (!array_key_exists($usfId, $this->mUserData) && $fieldValue !== '')
-        {
+        if (!array_key_exists($usfId, $this->mUserData) && $fieldValue !== '') {
             $this->mUserData[$usfId] = new TableAccess($this->db, TBL_USER_DATA, 'usd');
             $this->mUserData[$usfId]->setValue('usd_usf_id', $usfId);
             $this->mUserData[$usfId]->setValue('usd_usr_id', $this->mUserId);
         }
 
         // first check if user has a data object for this field and then set value of this user field
-        if (array_key_exists($usfId, $this->mUserData))
-        {
+        if (array_key_exists($usfId, $this->mUserData)) {
             $valueChanged = $this->mUserData[$usfId]->setValue('usd_value', $fieldValue);
 
-            if ($valueChanged && $this->mUserData[$usfId]->hasColumnsValueChanged())
-            {
+            if ($valueChanged && $this->mUserData[$usfId]->hasColumnsValueChanged()) {
                 $this->columnsValueChanged = true;
 
                 return true;

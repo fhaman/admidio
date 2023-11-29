@@ -3,16 +3,15 @@
  ***********************************************************************************************
  * Class manages PHP-Ini stuff
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
  */
-
 final class PhpIniUtils
 {
-    const BYTES_UNIT_FACTOR_1024 = 1024;
-    const BYTES_UNIT_FACTOR_1000 = 1000;
+    public const BYTES_UNIT_FACTOR_1024 = 1024;
+    public const BYTES_UNIT_FACTOR_1000 = 1000;
 
     /**
      * @var array<int,string> The disabled function names
@@ -26,8 +25,7 @@ final class PhpIniUtils
      */
     public static function getDisabledFunctions()
     {
-        if (self::$disabledFunctions === null)
-        {
+        if (self::$disabledFunctions === null) {
             self::$disabledFunctions = explode(',', ini_get('disable_functions'));
         }
 
@@ -53,22 +51,23 @@ final class PhpIniUtils
      */
     private static function getBytesFromSize($data, $multi = self::BYTES_UNIT_FACTOR_1024)
     {
-        if ($data === '' || $data === '-1')
-        {
+        if ($data === '' || $data === '-1') {
             return INF;
         }
 
         $value = (float) substr($data, 0, -1);
         $unit  = strtoupper(substr($data, -1));
 
-        switch ($unit)
-        {
+        switch ($unit) {
             case 'T': // fallthrough
                 $value *= $multi;
+                // no break
             case 'G': // fallthrough
                 $value *= $multi;
+                // no break
             case 'M': // fallthrough
                 $value *= $multi;
+                // no break
             case 'K': // fallthrough
                 $value *= $multi;
         }
@@ -164,15 +163,12 @@ final class PhpIniUtils
     {
         $baseDirs = self::getBaseDirs();
 
-        if ($baseDirs[0] === '')
-        {
+        if ($baseDirs[0] === '') {
             return true;
         }
 
-        foreach ($baseDirs as $baseDir)
-        {
-            if (strpos($directoryPath, $baseDir) === 0)
-            {
+        foreach ($baseDirs as $baseDir) {
+            if (strpos($directoryPath, $baseDir) === 0) {
                 return true;
             }
         }
@@ -190,12 +186,10 @@ final class PhpIniUtils
     {
         $directoryPath = FileSystemUtils::getNormalizedPath($directoryPath);
 
-        if (!is_dir($directoryPath))
-        {
+        if (!is_dir($directoryPath)) {
             throw new \UnexpectedValueException('Directory "' . $directoryPath . '" does not exist!');
         }
-        if (!self::isInBaseDirs($directoryPath))
-        {
+        if (!self::isInBaseDirs($directoryPath)) {
             throw new \RuntimeException('Directory "' . $directoryPath . '" is not in base-directories!');
         }
     }
@@ -210,8 +204,7 @@ final class PhpIniUtils
      */
     public static function setBaseDirs(array $directoryPaths = array())
     {
-        foreach ($directoryPaths as &$directoryPath)
-        {
+        foreach ($directoryPaths as &$directoryPath) {
             self::checkIsValidDir($directoryPath);
         }
         unset($directoryPath);
@@ -245,15 +238,13 @@ final class PhpIniUtils
     {
         global $gDebug, $gLogger;
 
-        if (in_array('set_time_limit', self::getDisabledFunctions(), true))
-        {
+        if (in_array('set_time_limit', self::getDisabledFunctions(), true)) {
             return;
         }
 
         // @ prevents error output in safe-mode
         $result = @set_time_limit($seconds);
-        if (!$result && $gDebug)
-        {
+        if (!$result && $gDebug) {
             $gLogger->warning('Function set_time_limit failed');
         }
     }

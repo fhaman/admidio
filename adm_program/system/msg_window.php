@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Popup window with information
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  *
@@ -16,16 +16,15 @@
 require_once(__DIR__ . '/common.php');
 
 // Initialize and check the parameters
-$getMessageId    = admFuncVariableIsValid($_GET, 'message_id',    'string', array('directOutput' => true, 'requireValue' => true));
+$getMessageId    = admFuncVariableIsValid($_GET, 'message_id', 'string', array('directOutput' => true, 'requireValue' => true));
 $getMessageTitle = admFuncVariableIsValid($_GET, 'message_title', 'string', array('directOutput' => true, 'defaultValue' => 'SYS_NOTE'));
-$getMessageVar1  = admFuncVariableIsValid($_GET, 'message_var1',  'string', array('directOutput' => true));
-$getInlineView   = admFuncVariableIsValid($_GET, 'inline',        'bool',   array('directOutput' => true));
+$getMessageVar1  = admFuncVariableIsValid($_GET, 'message_var1', 'string', array('directOutput' => true));
+$getInlineView   = admFuncVariableIsValid($_GET, 'inline', 'bool', array('directOutput' => true));
 
 header('Content-type: text/html; charset=utf-8');
 
 // show headline
-if($getInlineView)
-{
+if ($getInlineView) {
     echo '
         <div class="modal-header">
             <h3 class="modal-title">'.$gL10n->get('SYS_NOTE').'</h3>
@@ -34,12 +33,10 @@ if($getInlineView)
         <div class="modal-body">';
 }
 
-switch ($getMessageId)
-{
+switch ($getMessageId) {
     // room help text
     case 'room_detail':
-        if(is_numeric($getMessageVar1))
-        {
+        if (is_numeric($getMessageVar1)) {
             $room = new TableRooms($gDb, $getMessageVar1);
             echo '
                 <div class="row">
@@ -59,10 +56,6 @@ switch ($getMessageId)
                     <div class="col-8">'.$room->getValue('room_description').'</div>
                 </div>';
         }
-        break;
-
-    case 'user_field_description':
-        echo $gProfileFields->getProperty($getMessageVar1, 'usf_description');
         break;
 
     // mylist condition description
@@ -151,7 +144,7 @@ switch ($getMessageId)
                 <li>'.$gL10n->get('PRO_RESTRICTIONS_HELP_1').'</li>
                 <li>'.$gL10n->get('PRO_RESTRICTIONS_HELP_2').'</li>
                 <li>'.$gL10n->get('PRO_RESTRICTIONS_HELP_3', array(round(admFuncProcessableImageSize()/1000000, 2))).'</li>
-                <li>'.$gL10n->get('PRO_RESTRICTIONS_HELP_4', array(round(PhpIniUtils::getUploadMaxSize()/pow(1024, 2), 2))).'</li>
+                <li>'.$gL10n->get('PRO_RESTRICTIONS_HELP_4', array(round(PhpIniUtils::getUploadMaxSize()/1024** 2, 2))).'</li>
             </ul>';
         break;
 
@@ -161,7 +154,6 @@ switch ($getMessageId)
         echo $gL10n->get(strtoupper($getMessageId), array(Language::translateIfTranslationStrId($getMessageVar1)));
 }
 
-if($getInlineView)
-{
+if ($getInlineView) {
     echo '</div></div>';
 }

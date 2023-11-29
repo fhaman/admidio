@@ -4,8 +4,8 @@ Admidio is a free open source user management system for websites of
 organizations and groups. The system has a flexible role model so that
 it’s possible to reflect the structure and permissions of your organization.
 You can create an individual profile for your members by adding or removing
-fields. Additional to these functions the system contains several modules
-like member lists, event manager, guestbook, photo album or a documents & files area.
+profile fields. Additional to these functions the system contains several modules
+like member lists, event manager, messages, photo album or a documents & files area.
 
 ![logo](https://www.admidio.org/images/mainpage_flying_icons.png)
 
@@ -16,6 +16,7 @@ like member lists, event manager, guestbook, photo album or a documents & files 
 ![GitHub top language](https://img.shields.io/github/languages/top/admidio/admidio)
 [![GitHub license](https://img.shields.io/github/license/Admidio/admidio)](https://github.com/Admidio/admidio/blob/master/LICENSE.txt)
 
+Supported languages: :gb: :de: :denmark: :netherlands: :poland: :estonia: :ukraine: :fr: :bulgaria: :finland: :greece: :sweden: :es: :brazil: :portugal: :it: :indonesia: :hungary: :norway: :cn:
 
 ## Table of contents
 
@@ -44,7 +45,7 @@ like member lists, event manager, guestbook, photo album or a documents & files 
 
 ## Installation
 
-You can install Admidio on your webspace if the script language [PHP](https://www.php.net/) in version 5.6.0
+You can install Admidio on your webspace if the script language [PHP](https://www.php.net/) in version 7.2
 or higher is available. Admidio also needs a [MySQL](https://www.mysql.com/) (version 5.0 or higher) or
 [PostgreSQL](https://www.postgresql.org/) (version 9.0 or higher) database to run.
 
@@ -136,27 +137,28 @@ and sharing great software.
 
 - [Admidio Team](https://github.com/Admidio/admidio/graphs/contributors): The core developers of this project
 - [Bootstrap](https://getbootstrap.com/): HTML, CSS and JS framework
-- [Bootstrap-Datepicker](https://github.com/eternicode/bootstrap-datepicker): Datepicker for Bootstrap
 - [CKEditor](http://ckeditor.com/): Javascript-Editor
+- [Composer](https://getcomposer.org/): A Dependency Manager for PHP.
 - [Cookie Consent](https://cookieconsent.insites.com/): The most popular solution to the EU cookie law
 - [Datatables](https://www.datatables.net/): Table plugin for jQuery
 - [Font Awesome](https://fontawesome.com/): Vector icons and social logos
-- [htmLawed](https://github.com/vanilla/htmlawed/): PHP code to purify & filter HTML
+- [HTML Purifier](http://htmlpurifier.org/): PHP code to purify & filter HTML
 - [James Heinrich](http://www.silisoftware.com/): backupDB
 - [jQuery](https://jquery.com/): JavaScript-Library
 - [jQuery-File-Upload](https://blueimp.github.io/jQuery-File-Upload/): jQuery file upload plugin
 - [Lightbox](https://ashleydw.github.io/lightbox/): Lightbox for Bootstrap
-- [Moment](https://github.com/Seldaek/monolog/): Parse, validate, manipulate, and display dates in JavaScript
-- [Monolog](http://momentjs.com/): Logging for PHP
+- [Luxon](https://moment.github.io/luxon/#/): A powerful, modern, and friendly wrapper for JavaScript dates and times.
+- [Monolog](https://github.com/Seldaek/monolog/): Logging for PHP
 - [NobleCount](https://tpgblog.com/NobleCount/): NobleCount… for a more ‘proper’ count of the characters remaining.
-- [random_compat](https://github.com/paragonie/random_compat/): PHP 5.x polyfill for random_bytes() and random_int()
-- [phpass](https://github.com/hautelook/phpass/): Portable PHP password hashing framework
 - [PHPMailer](https://github.com/PHPMailer/PHPMailer): Email sending library for PHP
-- [PSR Log](https://github.com/php-fig/log): An interface that describes a logger
+- [PHPSpreadsheet](https://phpspreadsheet.readthedocs.io): PhpSpreadsheet offers a set of classes that allow you to read and write various spreadsheet file formats.
+- [PSR Log](https://github.com/php-fig/log): An interface that describes a logger.
+- [ramsey/uuid](https://github.com/ramsey/uuid): A PHP library for generating and working with UUIDs.
 - [SecurImage](https://www.phpcaptcha.org/): PHP CAPTCHA script for generating complex images and CAPTCHA codes to protect forms from spam and abuse.
 - [Select2](https://select2.github.io/): jQuery replacement for select boxes
 - [Smarty](https://www.smarty.net/): PHP template engine
+- [TCPDF](https://tcpdf.org/): Open Source PHP class for generating PDF documents.
 - [zxcvbn](https://github.com/dropbox/zxcvbn): Add password strength indicator
 - [zxcvbn-php](https://github.com/bjeavons/zxcvbn-php): Test password strength in the backend
 
-Copyright (c) 2004 - 2021 The Admidio Team
+Copyright (c) 2004 - 2023 The Admidio Team

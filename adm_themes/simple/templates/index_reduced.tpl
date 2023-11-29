@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- (c) 2004 - 2020 The Admidio Team - https://www.admidio.org -->
-
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+    <!-- (c) 2004 - 2023 The Admidio Team - https://www.admidio.org -->
+
     <link rel="shortcut icon" type="image/x-icon" href="{$urlTheme}/images/favicon.ico" />
-    <link rel="icon" type="image/png" href="{$urlTheme}/images/favicon-32x32.png" sizes="32x32" />
-    <link rel="icon" type="image/png" href="{$urlTheme}/images/favicon-16x16.png" sizes="16x16" />
     <link rel="apple-touch-icon" type="image/png" href="{$urlTheme}/images/apple-touch-icon.png" sizes="180x180" />
 
     <title>{$title}</title>
@@ -44,7 +41,7 @@
 
             {if $hasPreviousUrl}
                 <!-- Add link to previous page -->
-                <a class="" href="{$urlAdmidio}/adm_program/system/back.php"><i class="fas fa-arrow-circle-left fa-fw"></i> {$l10n->get('SYS_BACK')}</a>
+                <a id="admidio-back-link" class="" href="{$urlAdmidio}/adm_program/system/back.php"><i class="fas fa-arrow-circle-left fa-fw"></i> {$l10n->get('SYS_BACK')}</a>
             {/if}
         </div>
 

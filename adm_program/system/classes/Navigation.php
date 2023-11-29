@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -13,8 +13,8 @@
  * This class stores every url that you add to the object in a stack. From
  * there it's possible to return the last called url or a previous url. This
  * can be used to allow a navigation within a module. It's also possible
- * to create a html navigation bar. Therefore you should add a url and a link text
- * to the object everytime you submit a url.
+ * to create a html navigation bar. Therefore, you should add an url and a link text
+ * to the object everytime you submit an url.
  *
  * **Code example**
  * ```
@@ -40,7 +40,8 @@
 class Navigation
 {
     /**
-     * @var array<int,array<string,string>>
+     * @var array<array<string,string,string>> Array with all urls of the navigation class.
+     * The sub array will contain the url, a headline and an icon.
      */
     private $urlStack = array();
 
@@ -49,7 +50,6 @@ class Navigation
      */
     public function __construct()
     {
-
     }
 
     /**
@@ -62,8 +62,8 @@ class Navigation
     }
 
     /**
-     * Number of urls that a currently in the stack
-     * @return int
+     * Number of urls that are currently in the stack
+     * @return int Returns the number of the urls in the stack.
      */
     public function count()
     {
@@ -73,59 +73,18 @@ class Navigation
     /**
      * Initialize the stack and adds a new url to the navigation stack.
      * If a html navigation bar should be created later than you should fill the text and maybe the icon.
-     * @param string $url  The url that should be added to the navigation stack.
+     * @param string $url The url that should be added to the navigation stack.
      * @param string $text A text that should be shown in the html navigation stack and
      *                     would be linked with the $url.
-     * @param string $icon A url to the icon that should be shown in the html navigation stack
+     * @param string $icon The name of a fontawesome icon that should be shown in the html navigation stack
      *                     together with the text and would be linked with the $url.
      * @return void
+     * @throws AdmException Throws an exception if the url has invalid characters.
      */
     public function addStartUrl($url, $text = null, $icon = null)
     {
         $this->clear();
         $this->addUrl($url, $text, $icon);
-    }
-
-    /**
-     * Add a new url to the navigation stack. If a html navigation bar should be created later
-     * than you should fill the text and maybe the icon. Before the url will be added to the stack
-     * the method checks if the current url was already added to the url.
-     * @param string $url  The url that should be added to the navigation stack.
-     * @param string $text A text that should be shown in the html navigation stack and
-     *                     would be linked with the $url.
-     * @param string $icon A url to the icon that should be shown in the html navigation stack
-     *                     together with the text and would be linked with the $url.
-     * @return bool Returns true if the navigation-stack got changed and false if not.
-     */
-    public function addUrl($url, $text = null, $icon = null)
-    {
-        global $gLogger;
-
-        if (!StringUtils::strValidCharacters($url, 'url'))
-        {
-            // TODO throw Exception or return false
-            $gLogger->notice('NAVIGATION: Invalid URL added to navigation-stack!', array('url' => $url, 'text' => $text, 'icon' => $icon));
-        }
-
-        $count = count($this->urlStack);
-
-        // if the last url is equal to the new url than don't add the new url
-        if ($count > 0 && $url === $this->urlStack[$count - 1]['url'])
-        {
-            return false;
-        }
-
-        // if the second last url is equal to the new url then only remove the last url
-        if ($count > 1 && $url === $this->urlStack[$count - 2]['url'])
-        {
-            array_pop($this->urlStack);
-        }
-        else
-        {
-            $this->urlStack[] = array('url' => $url, 'text' => $text, 'icon' => $icon);
-        }
-
-        return true;
     }
 
     /**
@@ -136,8 +95,7 @@ class Navigation
      */
     public function deleteLastUrl()
     {
-        if (count($this->urlStack) > 1)
-        {
+        if (count($this->urlStack) > 1) {
             return array_pop($this->urlStack);
         }
 
@@ -145,17 +103,73 @@ class Navigation
     }
 
     /**
+     * Add a new url to the navigation stack. If a html navigation bar should be created later
+     * than you should fill the text and maybe the icon. Before the url will be added to the stack
+     * the method checks if the current url was already added to the url.
+     * @param string $url The url that should be added to the navigation stack.
+     * @param string $text A text that should be shown in the html navigation stack and
+     *                     would be linked with the $url.
+     * @param string $icon The name of a fontawesome icon that should be shown in the html navigation stack
+     *                     together with the text and would be linked with the $url.
+     * @throws AdmException Throws an exception if the url has invalid characters.
+     * @return bool Returns true if the navigation-stack got changed and false if not.
+     */
+    public function addUrl($url, $text = null, $icon = null)
+    {
+        if (!StringUtils::strValidCharacters($url, 'url')) {
+            throw new AdmException('SYS_URL_INVALID_CHAR', array('navigation stack'));
+        }
+
+        $count = count($this->urlStack);
+
+        // if the last url is equal to the new url than don't add the new url
+        if ($count > 0 && $url === $this->urlStack[$count - 1]['url']) {
+            return false;
+        }
+
+        // if the text of the last url is equal to the new url and the main url without query parameters is equal
+        // than replace the last url with the current url.
+        if($count > 0 && $text !== '' && $text === $this->urlStack[$count - 1]['text']) {
+            $urlParts = parse_url($url);
+            $previousUrlParts = parse_url($this->urlStack[$count - 1]['url']);
+
+            if($urlParts['scheme'] === $previousUrlParts['scheme']
+            && $urlParts['host'] === $previousUrlParts['host']
+            && $urlParts['path'] === $previousUrlParts['path']) {
+                array_pop($this->urlStack);
+            }
+        }
+
+        // if the second last url is equal to the new url then only remove the last url
+        if ($count > 1 && $url === $this->urlStack[$count - 2]['url']) {
+            array_pop($this->urlStack);
+        } else {
+            $this->urlStack[] = array('url' => $url, 'text' => $text, 'icon' => $icon);
+        }
+
+        return true;
+    }
+
+    /**
+     * The navigation stack contains each url. Optional a text and an icon is also set for the url.
+     * @return array<int,array<string,string> Array with the navigation stack. The array has the following element **url**, **text** and **icon**
+     */
+    public function getStack()
+    {
+        return $this->urlStack;
+    }
+
+    /**
      * Get the last added url from the stack.
+     * @throws AdmException Throws an exception if no url is in the navigation stack.
      * @return string|null Returns the last added url. If the stack is empty returns null
      */
     public function getUrl()
     {
         $count = count($this->urlStack);
 
-        if ($count === 0)
-        {
-            // TODO throw Exception
-            return null;
+        if ($count === 0) {
+            throw new AdmException('No url within the navigation stack.');
         }
 
         return $this->urlStack[$count - 1]['url'];
@@ -163,49 +177,20 @@ class Navigation
 
     /**
      * Get the previous url from the stack. This is not the last url that was added to the stack!
+     * @throws AdmException Throws an exception if no previous url is in the navigation stack.
      * @return string|null Returns the previous added url. If only one url is added it returns this one. If no url is added returns null
      */
     public function getPreviousUrl()
     {
         $count = count($this->urlStack);
 
-        if ($count === 0)
-        {
-            // TODO throw Exception
-            return null;
+        if ($count === 0) {
+            throw new AdmException('No previous url within the navigation stack.');
         }
 
         // Only one url, take this one
         $entry = max(0, $count - 2);
 
         return $this->urlStack[$entry]['url'];
-    }
-
-    /**
-     * Returns html code that contain links to all previous added urls from the stack.
-     * The output will look like: `FirstPage > SecondPage > ThirdPage ...`
-     * The last page of this list is always the current page.
-     * @param string $id Optional you could set an id for the navigation bar
-     * @return string Returns html code of the navigation bar.
-     */
-    public function getHtmlNavigationBar($id = 'adm-navigation-bar')
-    {
-        $links = array();
-
-        foreach ($this->urlStack as $url)
-        {
-            if (strlen($url['text']) > 0)
-            {
-                $links[] = '<a href="'.$url['url'].'">'.$url['text'].'</a>';
-            }
-        }
-
-        // if no links where found then show nothing
-        if (count($links) === 0)
-        {
-            return '';
-        }
-
-        return '<div id="'.$id.'" class="admNavigation admNavigationBar">'.implode('', $links).'</div>';
     }
 }

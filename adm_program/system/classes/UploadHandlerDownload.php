@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -23,6 +23,7 @@
  *                                                  'image_versions' => array()));
  * ```
  */
+
 class UploadHandlerDownload extends UploadHandler
 {
     /**
@@ -40,29 +41,26 @@ class UploadHandlerDownload extends UploadHandler
      */
     protected function handle_file_upload($uploadedFile, $name, $size, $type, $error, $index = null, $contentRange = null)
     {
-        global $gSettingsManager, $gL10n, $gDb, $getId, $gCurrentOrganization, $gCurrentUser, $gLogger;
+        global $gSettingsManager, $gL10n, $gDb, $gCurrentOrganization, $gCurrentUser, $gLogger;
 
         $file = parent::handle_file_upload($uploadedFile, $name, $size, $type, $error, $index, $contentRange);
 
-        if(!isset($file->error))
-        {
-            try
-            {
+        if (!isset($file->error)) {
+            try {
                 // check filesize against module settings
-                if ($file->size > $gSettingsManager->getInt('max_file_upload_size') * 1024 * 1024)
-                {
+                if ($file->size > $gSettingsManager->getInt('max_file_upload_size') * 1024 * 1024) {
                     throw new AdmException('SYS_FILE_TO_LARGE_SERVER', array($gSettingsManager->getInt('max_file_upload_size')));
                 }
 
                 // check filename and throw exception if something is wrong
-                StringUtils::strIsValidFileName($file->name);
+                StringUtils::strIsValidFileName($file->name, false);
 
                 // replace invalid characters in filename
                 $file->name = FileSystemUtils::removeInvalidCharsInFilename($file->name);
 
                 // get recordset of current folder from database and throw exception if necessary
                 $targetFolder = new TableFolder($gDb);
-                $targetFolder->getFolderForDownload($getId);
+                $targetFolder->getFolderForDownload($GLOBALS['getUuid']);
 
                 // now add new file to database
                 $newFile = new TableFile($gDb);
@@ -70,45 +68,65 @@ class UploadHandlerDownload extends UploadHandler
                 $newFile->setValue('fil_name', $file->name);
                 $newFile->setValue('fil_locked', $targetFolder->getValue('fol_locked'));
                 $newFile->setValue('fil_counter', 0);
+
+                if (!$newFile->allowedFileExtension()) {
+                    throw new AdmException('SYS_FILE_EXTENSION_INVALID');
+                }
+
                 $newFile->save();
 
-                // Benachrichtigungs-Email für neue Einträge
-                $fullName = $gCurrentUser->getValue('FIRST_NAME') . ' ' . $gCurrentUser->getValue('LAST_NAME');
-                $message = $gL10n->get(
-                    'SYS_EMAIL_FILE_NOTIFICATION_MESSAGE',
-                    array(
-                        $gCurrentOrganization->getValue('org_longname'),
-                        $file->name,
-                        $fullName,
-                        date($gSettingsManager->getString('system_date'))
-                    )
-                );
-                $notification = new Email();
-                $notification->adminNotification(
-                    $gL10n->get('SYS_EMAIL_FILE_NOTIFICATION_TITLE'),
-                    $message,
-                    $fullName,
-                    $gCurrentUser->getValue('EMAIL')
-                );
-            }
-            catch(AdmException $e)
-            {
-                $file->error = $e->getText();
-
-                try
-                {
-                    FileSystemUtils::deleteFileIfExists($this->options['upload_dir'].$file->name);
+                if ($gSettingsManager->getBool('system_notifications_new_entries')) {
+                    // send notification email for new entries
+                    $message = $gL10n->get(
+                        'SYS_EMAIL_FILE_NOTIFICATION_MESSAGE',
+                        array(
+                            $gCurrentOrganization->getValue('org_longname'),
+                            $file->name,
+                            $gCurrentUser->getValue('FIRST_NAME') . ' ' . $gCurrentUser->getValue('LAST_NAME'),
+                            date($gSettingsManager->getString('system_date'))
+                        )
+                    );
+                    $notification = new Email();
+                    $notification->sendNotification(
+                        $gL10n->get('SYS_EMAIL_FILE_NOTIFICATION_TITLE'),
+                        $message
+                    );
                 }
-                catch (\RuntimeException $exception)
-                {
+            } catch (AdmException $e) {
+                try {
+                    FileSystemUtils::deleteFileIfExists($this->options['upload_dir'].$file->name);
+                } catch (RuntimeException $exception) {
                     $gLogger->error('Could not delete file!', array('filePath' => $this->options['upload_dir'].$file->name));
                     // TODO
                 }
+                // remove XSS from filename before the name will be shown in the error message
+                $file->name = SecurityUtils::encodeHTML(StringUtils::strStripTags($file->name));
+                $file->error = $e->getText();
 
                 return $file;
             }
         }
 
         return $file;
+    }
+
+    /**
+     * Override the default method to handle specific form data that will be set when creating the Javascript
+     * file upload object. Here we validate the CSRF token that will be set. If the check failed an error will
+     * be set and the file upload will be canceled.
+     * @param string $file
+     * @param int    $index
+     */
+    protected function handle_form_data($file, $index)
+    {
+        // ADM Start
+        try {
+            // check the CSRF token of the form against the session token
+            SecurityUtils::validateCsrfToken($_REQUEST['admidio-csrf-token']);
+        } catch (AdmException $exception) {
+            $file->error = $exception->getText();
+            // => EXIT
+        }
+        // ADM End
     }
 }

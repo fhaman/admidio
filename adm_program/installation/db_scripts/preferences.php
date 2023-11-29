@@ -7,7 +7,7 @@
  *            then you must set these values for every organization
  *            in the update scripts
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -30,13 +30,16 @@ $defaultOrgPreferences = array(
     'system_js_editor_enabled'       => '1',
     'system_js_editor_color'         => '#96c4cb',
     'system_language'                => 'de',
-    'system_organization_select'     => '0',
     'system_search_similar'          => '1',
     'system_show_create_edit'        => '1',
     'system_time'                    => 'H:i',
     'system_url_imprint'             => '',
     'system_url_data_protection'     => '',
     'password_min_strength'          => '1',
+
+    // Organization
+    'email_administrator'            => 'administrator@'. DOMAIN,
+    'system_organization_select'     => '0',
 
     // Registration
     'registration_enable_module'     => '1',
@@ -46,21 +49,24 @@ $defaultOrgPreferences = array(
 
     // E-mail dispatch
     'mail_send_method'               => 'phpmail',
-    'mail_bcc_count'                 => '50',
+    'mail_sending_mode'              => '0',
     'mail_recipients_with_roles'     => '1',
+    'mail_number_recipients'         => '50',
+    'mail_into_to'                   => '0',
     'mail_character_encoding'        => 'utf-8',
     'mail_smtp_host'                 => '',
     'mail_smtp_auth'                 => '1',
-    'mail_smtp_port'                 => '25',
-    'mail_smtp_secure'               => '',
+    'mail_smtp_port'                 => '587',
+    'mail_smtp_secure'               => 'tls',
     'mail_smtp_authentication_type'  => '',
     'mail_smtp_user'                 => '',
     'mail_smtp_password'             => '',
 
     // System notifications
-    'enable_system_mails'         => '1',
-    'email_administrator'         => 'administrator@'. DOMAIN,
-    'enable_email_notification'   => '0',
+    'system_notifications_enabled'         => '1',
+    'system_notifications_role'            => '',
+    'system_notifications_new_entries'     => '0',
+    'system_notifications_profile_changes' => '0',
 
     // Captcha
     'captcha_type'                => 'pic',
@@ -80,24 +86,25 @@ $defaultOrgPreferences = array(
     'announcements_per_page'      => '10',
 
     // User management
-    'members_users_per_page'        => '25',
-    'members_days_field_history'    => '365',
-    'members_show_all_users'        => '1',
     'members_enable_user_relations' => '1',
+    'members_days_field_history'    => '365',
+    'members_list_configuration'    => '',
+    'members_show_all_users'        => '1',
+    'members_users_per_page'        => '25',
 
     // Documents and files
     'documents_files_enable_module' => '1',
-    'max_file_upload_size'   => '3',
+    'max_file_upload_size'          => '3',
 
     // Photos
     'enable_photo_module'    => '1',
     'photo_show_mode'        => '1',
     'photo_albums_per_page'  => '24',
-    'photo_save_scale'       => '800',
+    'photo_save_scale'       => '1000',
     'photo_thumbs_page'      => '16',
     'photo_thumbs_scale'     => '200',
-    'photo_show_width'       => '800',
-    'photo_show_height'      => '600',
+    'photo_show_width'       => '1000',
+    'photo_show_height'      => '750',
     'photo_image_text'       => '© '.DOMAIN,
     'photo_image_text_size'  => '40',
     'photo_keep_original'    => '0',
@@ -112,28 +119,28 @@ $defaultOrgPreferences = array(
     'enable_intial_comments_loading' => '0',
     'enable_guestbook_moderation'    => '0',
 
-    // Lists
-    'groups_roles_enable_module'         => '1',
-    'groups_roles_roles_per_page'        => '24',
-    'groups_roles_members_per_page'      => '25',
+    // Groups and roles
     'groups_roles_default_configuration' => '',
+    'groups_roles_enable_module'         => '1',
+    'groups_roles_export'                => '1',
+    'groups_roles_edit_lists'            => '1',
+    'groups_roles_members_per_page'      => '25',
     'groups_roles_show_former_members'   => '2',
 
     // Messages
     'enable_mail_module'          => '1',
     'enable_pm_module'            => '1',
-    'enable_chat_module'          => '0',
     'enable_mail_captcha'         => '1',
+    'mail_delivery_confirmation'  => '0',
+    'mail_html_registered_users'  => '1',
     'mail_max_receiver'           => '10',
-    'mail_show_former'            => '1',
-    'mail_into_to'                => '0',
-    'max_email_attachment_size'   => '1',
+    'mail_save_attachments'       => '1',
+    'mail_send_to_all_addresses'  => '1',
     'mail_sendmail_address'       => '',
     'mail_sendmail_name'          => '',
-    'mail_html_registered_users'  => '1',
-    'mail_delivery_confirmation'  => '0',
-    'mail_send_to_all_addresses'  => '1',
+    'mail_show_former'            => '1',
     'mail_template'               => 'default.html',
+    'max_email_attachment_size'   => '1',
 
     // E-Cards
     'enable_ecard_module'       => '1',
@@ -162,6 +169,10 @@ $defaultOrgPreferences = array(
     'dates_default_list_configuration'  => '',
     'dates_save_all_confirmations'      => '1',
     'dates_may_take_part'               => '0',
+
+    // Category-Report
+    'category_report_enable_module'         => '1',
+    'category_report_default_configuration' => '',
 
     // Weblinks
     'enable_weblinks_module'    => '1',

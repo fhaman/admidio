@@ -1,18 +1,14 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
  */
 
-use Hautelook\Phpass\PasswordHash;
-
 /**
  * This class provides static functions for different tasks for passwords and hashing
- * It used the "random_compat" lib to provide forward compatibility with the random_* functions that ship with PHP 7.0
- * It used the "phpass" lib to provide backward compatibility to the old password hashing way
  *
  * Functions:
  * hash()               hash the given password with the given options
@@ -25,24 +21,24 @@ use Hautelook\Phpass\PasswordHash;
  */
 final class PasswordUtils
 {
-    const HASH_ALGORITHM_DEFAULT = 'DEFAULT';
-    const HASH_ALGORITHM_ARGON2ID = 'ARGON2ID';
-    const HASH_ALGORITHM_ARGON2I = 'ARGON2I';
-    const HASH_ALGORITHM_BCRYPT = 'BCRYPT';
-    const HASH_ALGORITHM_SHA512 = 'SHA512';
+    public const HASH_ALGORITHM_DEFAULT = 'DEFAULT';
+    public const HASH_ALGORITHM_ARGON2ID = 'ARGON2ID';
+    public const HASH_ALGORITHM_ARGON2I = 'ARGON2I';
+    public const HASH_ALGORITHM_BCRYPT = 'BCRYPT';
+    public const HASH_ALGORITHM_SHA512 = 'SHA512';
 
-    const HASH_COST_BCRYPT_DEFAULT = PASSWORD_BCRYPT_DEFAULT_COST;
-    const HASH_COST_BCRYPT_MIN = 8;
-    const HASH_COST_BCRYPT_MAX = 31;
-    const HASH_COST_SHA512_DEFAULT = 100000;
-    const HASH_COST_SHA512_MIN = 25000;
-    const HASH_COST_SHA512_MAX = 999999999;
+    public const HASH_COST_BCRYPT_DEFAULT = PASSWORD_BCRYPT_DEFAULT_COST;
+    public const HASH_COST_BCRYPT_MIN = 8;
+    public const HASH_COST_BCRYPT_MAX = 31;
+    public const HASH_COST_SHA512_DEFAULT = 100000;
+    public const HASH_COST_SHA512_MIN = 25000;
+    public const HASH_COST_SHA512_MAX = 999999999;
 
-    const HASH_INDICATOR_ARGON2ID = '$argon2id$';
-    const HASH_INDICATOR_ARGON2I = '$argon2i$';
-    const HASH_INDICATOR_BCRYPT = '$2y$';
-    const HASH_INDICATOR_SHA512 = '$6$';
-    const HASH_INDICATOR_PORTABLE = '$P$';
+    public const HASH_INDICATOR_ARGON2ID = '$argon2id$';
+    public const HASH_INDICATOR_ARGON2I = '$argon2i$';
+    public const HASH_INDICATOR_BCRYPT = '$2y$';
+    public const HASH_INDICATOR_SHA512 = '$6$';
+    public const HASH_INDICATOR_PORTABLE = '$P$';
 
     /**
      * Run a benchmark to get the best fitting cost value.
@@ -58,44 +54,33 @@ final class PasswordUtils
 
         $options = self::getPreparedOptions($algorithm, $options);
 
-        if ($algorithm === self::HASH_ALGORITHM_SHA512)
-        {
+        if ($algorithm === self::HASH_ALGORITHM_SHA512) {
             $maxCost = self::HASH_COST_SHA512_MAX;
-        }
-        elseif ($algorithm === self::HASH_ALGORITHM_BCRYPT || ($algorithm === self::HASH_ALGORITHM_DEFAULT && PASSWORD_DEFAULT === PASSWORD_BCRYPT))
-        {
+        } elseif ($algorithm === self::HASH_ALGORITHM_BCRYPT || ($algorithm === self::HASH_ALGORITHM_DEFAULT && PASSWORD_DEFAULT === PASSWORD_BCRYPT)) {
             $maxCost = self::HASH_COST_BCRYPT_MAX;
-        }
-        else
-        {
-           return array('options' => $options, 'time' => null);
+        } else {
+            return array('options' => $options, 'time' => null);
         }
 
         $result = null;
 
         // increase the cost value until the hashing time reaches the maximum configured time
-        do
-        {
+        do {
             $start = microtime(true);
             self::hash($password, $algorithm, $options);
             $end = microtime(true);
 
             $time = $end - $start;
 
-            if ($result === null || $time <= $maxTime)
-            {
+            if ($result === null || $time <= $maxTime) {
                 $result = array('options' => $options, 'time' => $time);
             }
-            if ($algorithm === self::HASH_ALGORITHM_SHA512)
-            {
+            if ($algorithm === self::HASH_ALGORITHM_SHA512) {
                 $options['cost'] *= 2;
-            }
-            else
-            {
+            } else {
                 $options['cost'] += 1;
             }
-        }
-        while ($time <= $maxTime && $options['cost'] <= $maxCost);
+        } while ($time <= $maxTime && $options['cost'] <= $maxCost);
 
         $gLogger->notice('Benchmark: Password-hashing result.', $result);
 
@@ -148,28 +133,25 @@ final class PasswordUtils
      */
     private static function getPreparedOptions($algorithm, array $options)
     {
-        if ($algorithm === self::HASH_ALGORITHM_SHA512)
-        {
+        if ($algorithm === self::HASH_ALGORITHM_SHA512) {
             $defaultCost = self::HASH_COST_SHA512_DEFAULT;
             $minCost     = self::HASH_COST_SHA512_MIN;
-        }
-        elseif ($algorithm === self::HASH_ALGORITHM_BCRYPT || ($algorithm === self::HASH_ALGORITHM_DEFAULT && PASSWORD_DEFAULT === PASSWORD_BCRYPT))
-        {
+        } elseif ($algorithm === self::HASH_ALGORITHM_BCRYPT || ($algorithm === self::HASH_ALGORITHM_DEFAULT && PASSWORD_DEFAULT === PASSWORD_BCRYPT)) {
             $defaultCost = self::HASH_COST_BCRYPT_DEFAULT;
             $minCost     = self::HASH_COST_BCRYPT_MIN;
-        }
-        else
-        {
+        } else {
             $options['cost'] = null;
             return $options;
         }
 
-        if (!array_key_exists('cost', $options) || !is_int($options['cost']))
-        {
-            $options['cost'] = $defaultCost;
-        }
-        elseif ($options['cost'] < $minCost) // https://paragonie.com/blog/2016/02/how-safely-store-password-in-2016
-        {
+        if (!array_key_exists('cost', $options) || !is_int($options['cost'])) {
+            global $gSettingsManager;
+            if (isset($gSettingsManager) && $gSettingsManager->has('system_hashing_cost')) {
+                $options['cost'] = $gSettingsManager->getInt('system_hashing_cost');
+            } else {
+                $options['cost'] = $defaultCost;
+            }
+        } elseif ($options['cost'] < $minCost) { // https://paragonie.com/blog/2016/02/how-safely-store-password-in-2016
             $options['cost'] = $minCost;
         }
 
@@ -183,21 +165,15 @@ final class PasswordUtils
      */
     public static function hashInfo($hash)
     {
-        if (str_starts_with($hash, self::HASH_INDICATOR_ARGON2ID) || str_starts_with($hash, self::HASH_INDICATOR_ARGON2I) || str_starts_with($hash, self::HASH_INDICATOR_BCRYPT))
-        {
+        if (str_starts_with($hash, self::HASH_INDICATOR_ARGON2ID) || str_starts_with($hash, self::HASH_INDICATOR_ARGON2I) || str_starts_with($hash, self::HASH_INDICATOR_BCRYPT)) {
             return password_get_info($hash);
-        }
-        elseif (str_starts_with($hash, self::HASH_INDICATOR_SHA512))
-        {
+        } elseif (str_starts_with($hash, self::HASH_INDICATOR_SHA512)) {
             return 'SHA512';
-        }
-        elseif (str_starts_with($hash, self::HASH_INDICATOR_PORTABLE))
-        {
+        } elseif (str_starts_with($hash, self::HASH_INDICATOR_PORTABLE)) {
             return 'PRIVATE/PORTABLE_HASH';
         }
         // MD5 Hashes are 32 chars long and consists out of HEX values (digits and a-f)
-        elseif (preg_match('/^[\dA-Fa-f]{32}$/', $hash))
-        {
+        elseif (preg_match('/^[\dA-Fa-f]{32}$/', $hash)) {
             return 'MD5';
         }
 
@@ -216,31 +192,20 @@ final class PasswordUtils
     {
         $options = self::getPreparedOptions($algorithm, $options);
 
-        if ($algorithm === self::HASH_ALGORITHM_DEFAULT)
-        {
+        if ($algorithm === self::HASH_ALGORITHM_DEFAULT) {
             $algorithmPhpConstant = PASSWORD_DEFAULT;
-        }
-        elseif ($algorithm === self::HASH_ALGORITHM_ARGON2ID && str_starts_with($hash, self::HASH_INDICATOR_ARGON2ID))
-        {
+        } elseif ($algorithm === self::HASH_ALGORITHM_ARGON2ID && str_starts_with($hash, self::HASH_INDICATOR_ARGON2ID)) {
             $algorithmPhpConstant = PASSWORD_ARGON2ID;
-        }
-        elseif ($algorithm === self::HASH_ALGORITHM_ARGON2I && str_starts_with($hash, self::HASH_INDICATOR_ARGON2I))
-        {
+        } elseif ($algorithm === self::HASH_ALGORITHM_ARGON2I && str_starts_with($hash, self::HASH_INDICATOR_ARGON2I)) {
             $algorithmPhpConstant = PASSWORD_ARGON2I;
-        }
-        elseif ($algorithm === self::HASH_ALGORITHM_BCRYPT && str_starts_with($hash, self::HASH_INDICATOR_BCRYPT))
-        {
+        } elseif ($algorithm === self::HASH_ALGORITHM_BCRYPT && str_starts_with($hash, self::HASH_INDICATOR_BCRYPT)) {
             $algorithmPhpConstant = PASSWORD_BCRYPT;
-        }
-        elseif ($algorithm === self::HASH_ALGORITHM_SHA512 && str_starts_with($hash, self::HASH_INDICATOR_SHA512))
-        {
+        } elseif ($algorithm === self::HASH_ALGORITHM_SHA512 && str_starts_with($hash, self::HASH_INDICATOR_SHA512)) {
             $hashParts = explode('$', $hash);
             $cost = (int) substr($hashParts[2], 7);
 
             return $cost !== $options['cost'];
-        }
-        else
-        {
+        } else {
             return true;
         }
 
@@ -264,20 +229,16 @@ final class PasswordUtils
 
         $passwordInfo['length'] = strlen($password);
 
-        if (preg_match('/\d/', $password) === 1)
-        {
+        if (preg_match('/\d/', $password) === 1) {
             $passwordInfo['number'] = true;
         }
-        if (preg_match('/[a-z]/', $password) === 1)
-        {
+        if (preg_match('/[a-z]/', $password) === 1) {
             $passwordInfo['lowerCase'] = true;
         }
-        if (preg_match('/[A-Z]/', $password) === 1)
-        {
+        if (preg_match('/[A-Z]/', $password) === 1) {
             $passwordInfo['upperCase'] = true;
         }
-        if (preg_match('/\W/', $password) === 1 || str_contains($password, '_')) // Note: \W = ![\da-zA-Z_]
-        {
+        if (preg_match('/\W/', $password) === 1 || str_contains($password, '_')) { // Note: \W = ![\da-zA-Z_]
             $passwordInfo['symbol'] = true;
         }
 
@@ -306,23 +267,14 @@ final class PasswordUtils
      */
     public static function verify($password, $hash)
     {
-        if (str_starts_with($hash, self::HASH_INDICATOR_ARGON2ID) || str_starts_with($hash, self::HASH_INDICATOR_ARGON2I) || str_starts_with($hash, self::HASH_INDICATOR_BCRYPT))
-        {
+        if (str_starts_with($hash, self::HASH_INDICATOR_ARGON2ID) || str_starts_with($hash, self::HASH_INDICATOR_ARGON2I) || str_starts_with($hash, self::HASH_INDICATOR_BCRYPT)) {
             return password_verify($password, $hash);
-        }
-        elseif (str_starts_with($hash, self::HASH_INDICATOR_SHA512))
-        {
+        } elseif (str_starts_with($hash, self::HASH_INDICATOR_SHA512)) {
             $passwordHash = crypt($password, $hash);
             return hash_equals($passwordHash, $hash);
         }
-        elseif (str_starts_with($hash, self::HASH_INDICATOR_PORTABLE))
-        {
-            $passwordHasher = new PasswordHash(9, true);
-            return $passwordHasher->CheckPassword($password, $hash);
-        }
         // MD5 Hashes are 32 chars long and consists out of HEX values (digits and a-f)
-        elseif (preg_match('/^[\dA-Fa-f]{32}$/', $hash))
-        {
+        elseif (preg_match('/^[\dA-Fa-f]{32}$/', $hash)) {
             return md5($password) === $hash;
         }
 

@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -38,6 +38,11 @@
 class TableDate extends TableAccess
 {
     /**
+     * @var Participants object to handle all participants of this event
+     */
+    private $mParticipants;
+
+    /**
      * Constructor that will create an object of a recordset of the table adm_dates.
      * If the id is set than the specific date will be loaded.
      * @param Database $database Object of the class Database. This should be the default global object **$gDb**.
@@ -52,21 +57,60 @@ class TableDate extends TableAccess
     }
 
     /**
-     * Check if the current user is allowed to participate to this event.
-     * Therefore we check if the user is member of a role that is assigned to
-     * the right event_participation.
-     * @return bool Return true if the current user is allowed to participate to the event.
+     * Check if the current user is allowed to participate in this event.
+     * Therefore, we check if the user is member of a role that is assigned to
+     * the right event_participation. This method will also return **true** if the deadline is exceeded
+     * and a further participation isn't possible.
+     * @return bool Return true if the current user is allowed to participate in the event.
      */
-    public function allowedToParticipate()
+    public function allowedToParticipate(): bool
     {
         global $gCurrentUser;
 
-        if($this->getValue('dat_rol_id') > 0)
-        {
+        if ($this->getValue('dat_rol_id') > 0) {
             $eventParticipationRoles = new RolesRights($this->db, 'event_participation', (int) $this->getValue('dat_id'));
 
-            if(count(array_intersect($gCurrentUser->getRoleMemberships(), $eventParticipationRoles->getRolesIds())) > 0)
-            {
+            if (count(array_intersect($gCurrentUser->getRoleMemberships(), $eventParticipationRoles->getRolesIds())) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Calls clear() Method of parent class and initialize child class specific parameters
+     */
+    public function clear()
+    {
+        parent::clear();
+
+        // initialize class members
+        $this->mParticipants = null;
+    }
+
+    /**
+     * Check if it's possible for the current user to participate in this event.
+     * Therefore, we check if the user is allowed to participate and if the deadline of the event isn't exceeded.
+     * There should be no participants limit or the limit is not reached or the current user is already member
+     * of the event. If the user is already a member of the event, then this method will return true, if the
+     * deadline is not reached.
+     * @return bool Return true if it's possible for the current user to participate in the event.
+     */
+    public function possibleToParticipate(): bool
+    {
+        global $gCurrentUserId;
+
+        if(!$this->deadlineExceeded()) {
+            if(!is_object($this->mParticipants)) {
+                $this->mParticipants = new Participants($this->db, $this->getValue('dat_rol_id'));
+            }
+
+            if ($this->mParticipants->isMemberOfEvent($gCurrentUserId)) {
+                return true;
+            } elseif ($this->allowedToParticipate()
+                && ((int) $this->getValue('dat_max_members') === 0
+                    || $this->mParticipants->getCount() < (int) $this->getValue('dat_max_members'))) {
                 return true;
             }
         }
@@ -101,8 +145,7 @@ class TableDate extends TableAccess
         $eventParticipationRoles->delete();
 
         // if date has participants then the role with their memberships must be deleted
-        if ($datRoleId > 0)
-        {
+        if ($datRoleId > 0) {
             $sql = 'UPDATE '.TBL_DATES.'
                        SET dat_rol_id = NULL
                      WHERE dat_id = ? -- $datId';
@@ -146,27 +189,22 @@ class TableDate extends TableAccess
     {
         global $gSettingsManager;
 
-        $beginDate = $this->getValue('dat_begin', $gSettingsManager->getString('system_date')). '&nbsp;&nbsp;';
+        $beginDate = $this->getValue('dat_begin', $gSettingsManager->getString('system_date')). ' ';
         $endDate   = '';
 
-        if ($this->getValue('dat_all_day') != 1)
-        {
+        if ($this->getValue('dat_all_day') != 1) {
             $beginDate .= $this->getValue('dat_begin', $gSettingsManager->getString('system_time'));
         }
 
-        if($showPeriodEnd)
-        {
+        if ($showPeriodEnd) {
             // Show date end and time
-            if($this->getValue('dat_begin', $gSettingsManager->getString('system_date')) !== $this->getValue('dat_end', $gSettingsManager->getString('system_date')))
-            {
+            if ($this->getValue('dat_begin', $gSettingsManager->getString('system_date')) !== $this->getValue('dat_end', $gSettingsManager->getString('system_date'))) {
                 $endDate .= $this->getValue('dat_end', $gSettingsManager->getString('system_date'));
             }
-            if ($this->getValue('dat_all_day') != 1)
-            {
+            if ($this->getValue('dat_all_day') != 1) {
                 $endDate .= ' '. $this->getValue('dat_end', $gSettingsManager->getString('system_time'));
             }
-            if($endDate !== '')
-            {
+            if ($endDate !== '') {
                 $endDate = ' - '. $endDate;
             }
         }
@@ -249,8 +287,9 @@ class TableDate extends TableAccess
             'CREATED:' . $this->getValue('dat_timestamp_create', $dateTimeFormat)
         );
 
-        if ($this->getValue('dat_timestamp_change') !== null)
-        {
+        if ((string) $this->getValue('dat_timestamp_change') === '') {
+            $iCalVEvent[] = 'LAST-MODIFIED:' . $this->getValue('dat_timestamp_create', $dateTimeFormat);
+        }  else {
             $iCalVEvent[] = 'LAST-MODIFIED:' . $this->getValue('dat_timestamp_change', $dateTimeFormat);
         }
 
@@ -261,8 +300,7 @@ class TableDate extends TableAccess
         $iCalVEvent[] = 'DTSTAMP:' . date($dateTimeFormat);
         $iCalVEvent[] = 'LOCATION:' . $this->escapeIcalText($this->getValue('dat_location'));
 
-        if ((int) $this->getValue('dat_all_day') === 1)
-        {
+        if ((int) $this->getValue('dat_all_day') === 1) {
             // das Ende-Datum bei mehrtaegigen Terminen muss im iCal auch + 1 Tag sein
             // Outlook und Co. zeigen es erst dann korrekt an
             $dateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $this->getValue('dat_end', 'Y-m-d H:i:s'));
@@ -270,11 +308,9 @@ class TableDate extends TableAccess
 
             $iCalVEvent[] = 'DTSTART;VALUE=DATE:' . $this->getValue('dat_begin', 'Ymd');
             $iCalVEvent[] = 'DTEND;VALUE=DATE:' . $dateTime->add($oneDayOffset)->format('Ymd');
-        }
-        else
-        {
+        } else {
             $iCalVEvent[] = 'DTSTART;TZID=' . date_default_timezone_get() . ':' . $this->getValue('dat_begin', $dateTimeFormat);
-            $iCalVEvent[] = 'DTEND;TZID='   . date_default_timezone_get() . ':' . $this->getValue('dat_end',   $dateTimeFormat);
+            $iCalVEvent[] = 'DTEND;TZID='   . date_default_timezone_get() . ':' . $this->getValue('dat_end', $dateTimeFormat);
         }
 
         $iCalVEvent[] = 'END:VEVENT';
@@ -297,47 +333,23 @@ class TableDate extends TableAccess
     {
         global $gL10n;
 
-        if ($columnName === 'dat_end' && (int) $this->dbColumns['dat_all_day'] === 1)
-        {
-            if ($format === '')
-            {
-                $format = 'Y-m-d';
-            }
-
-            // bei ganztaegigen Terminen wird das Enddatum immer 1 Tag zurueckgesetzt
-            $dateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $this->dbColumns['dat_end']);
-            $oneDayOffset = new \DateInterval('P1D');
-            $value = $dateTime->sub($oneDayOffset)->format($format);
-        }
-        elseif ($columnName === 'dat_description')
-        {
-            if (!isset($this->dbColumns['dat_description']))
-            {
+        if ($columnName === 'dat_description') {
+            if (!isset($this->dbColumns['dat_description'])) {
                 $value = '';
-            }
-            elseif ($format === 'database')
-            {
+            } elseif ($format === 'database') {
                 $value = html_entity_decode(StringUtils::strStripTags($this->dbColumns['dat_description']), ENT_QUOTES, 'UTF-8');
-            }
-            else
-            {
+            } else {
                 $value = $this->dbColumns['dat_description'];
             }
-        }
-        else
-        {
+        } else {
             $value = parent::getValue($columnName, $format);
         }
 
-        if ($format !== 'database')
-        {
-            if ($columnName === 'dat_country' && $value)
-            {
-                // beim Land die sprachabhaengige Bezeichnung auslesen
+        if ($format !== 'database') {
+            if ($columnName === 'dat_country' && $value) {
+                // read out the language-dependent designation for the country
                 $value = $gL10n->getCountryName($value);
-            }
-            elseif ($columnName === 'cat_name')
-            {
+            } elseif ($columnName === 'cat_name') {
                 // if text is a translation-id then translate it
                 $value = Language::translateIfTranslationStrId($value);
             }
@@ -354,12 +366,9 @@ class TableDate extends TableAccess
     {
         global $gSettingsManager;
 
-        if ($this->getValue('dat_deadline') == null)
-        {
+        if ((string) $this->getValue('dat_deadline') === '') {
             $validDeadline = $this->getValue('dat_begin');
-        }
-        else
-        {
+        } else {
             $validDeadline = $this->getValue('dat_deadline');
         }
 
@@ -379,19 +388,16 @@ class TableDate extends TableAccess
     {
         global $gCurrentOrganization, $gCurrentUser;
 
-        if($gCurrentUser->editDates()
-        || in_array((int) $this->getValue('cat_id'), $gCurrentUser->getAllEditableCategories('DAT'), true))
-        {
+        if ($gCurrentUser->editDates()
+        || in_array((int) $this->getValue('cat_id'), $gCurrentUser->getAllEditableCategories('DAT'), true)) {
             // if category belongs to current organization than events are editable
-            if($this->getValue('cat_org_id') > 0
-            && (int) $this->getValue('cat_org_id') === (int) $gCurrentOrganization->getValue('org_id'))
-            {
+            if ($this->getValue('cat_org_id') > 0
+            && (int) $this->getValue('cat_org_id') === $GLOBALS['gCurrentOrgId']) {
                 return true;
             }
 
             // if category belongs to all organizations, child organization couldn't edit it
-            if((int) $this->getValue('cat_org_id') === 0 && !$gCurrentOrganization->isChildOrganization())
-            {
+            if ((int) $this->getValue('cat_org_id') === 0 && !$gCurrentOrganization->isChildOrganization()) {
                 return true;
             }
         }
@@ -413,17 +419,18 @@ class TableDate extends TableAccess
     }
 
     /**
-     * Checks if it's still possible to participate to an event. Therefore the participation deadline of the should not be expired.
-     * Also the maximum of allowed members for the event should not be exceeded or there is no maximum of allowed members set.
-     * @param int $currentCountParticipations Number of participiants that participate to the current event.
-     * @return bool Returns true if still users can participate to the event or false if it's not possible any more.
+     * Method will return true if the event has a maximum count of participants set and this limit
+     * is reached.
+     * @return bool Return **true** if the limit of participants is reached.
      */
-    public function participationPossible($currentCountParticipations)
+    public function participantLimitReached(): bool
     {
-        if(!$this->deadlineExceeded()
-        && (  $this->getValue('dat_max_members') === 0
-           || ($this->getValue('dat_max_members') > 0 && $currentCountParticipations < $this->getValue('dat_max_members'))))
-        {
+        if(!is_object($this->mParticipants)) {
+            $this->mParticipants = new Participants($this->db, $this->getValue('dat_rol_id'));
+        }
+
+        if ((int) $this->getValue('dat_max_members') > 0
+            && (int) $this->getValue('dat_max_members') <= $this->mParticipants->getCount()) {
             return true;
         }
         return false;
@@ -438,8 +445,7 @@ class TableDate extends TableAccess
         $this->clear();
 
         // add id to sql condition
-        if ($roleId > 0)
-        {
+        if ($roleId > 0) {
             // call method to read data out of database
             return $this->readData(' AND dat_rol_id = ? ', array($roleId));
         }
@@ -448,40 +454,58 @@ class TableDate extends TableAccess
     }
 
     /**
+     * Save all changed columns of the recordset in table of database. Therefore the class remembers if it's
+     * a new record or if only an update is necessary. The update statement will only update the changed columns.
+     * If the table has columns for creator or editor than these column with their timestamp will be updated.
+     * For new records the organization and ip address will be set per default.
+     * @param bool $updateFingerPrint Default **true**. Will update the creator or editor of the recordset if table has columns like **usr_id_create** or **usr_id_changed**
+     * @return bool If an update or insert into the database was done then return true, otherwise false.
+     */
+    public function save($updateFingerPrint = true)
+    {
+        global $gCurrentUser;
+
+        if (!$this->saveChangesWithoutRights && !in_array((int) $this->getValue('dat_cat_id'), $gCurrentUser->getAllEditableCategories('DAT'), true)) {
+            throw new AdmException('Event could not be saved because you are not allowed to edit events of this category.');
+        }
+
+        return parent::save($updateFingerPrint);
+    }
+
+    /**
      * Set a new value for a column of the database table.
      * The value is only saved in the object. You must call the method **save** to store the new value to the database
      * @param string $columnName The name of the database column whose value should get a new value
-     * @param mixed  $newValue   The new value that should be stored in the database field
-     * @param bool   $checkValue The value will be checked if it's valid. If set to **false** than the value will not be checked.
+     * @param mixed $newValue The new value that should be stored in the database field
+     * @param bool $checkValue The value will be checked if it's valid. If set to **false** than the value will not be checked.
      * @return bool Returns **true** if the value is stored in the current object and **false** if a check failed
+     * @throws AdmException
      */
     public function setValue($columnName, $newValue, $checkValue = true)
     {
-        if($checkValue)
-        {
-            if ($columnName === 'dat_description')
-            {
-                return parent::setValue($columnName, $newValue, false);
-            }
-            elseif($columnName === 'dat_cat_id')
-            {
-                $category = new TableCategory($this->db, $newValue);
+        global $gL10n;
 
-                if(!$category->isVisible() || $category->getValue('cat_type') !== 'DAT')
-                {
-                    throw new AdmException('Category of the event '. $this->getValue('dat_name'). ' could not be set
-                        because the category is not visible to the current user and current organization.');
+        if ($checkValue) {
+            if ($columnName === 'dat_description') {
+                return parent::setValue($columnName, $newValue, false);
+            } elseif ($columnName === 'dat_cat_id') {
+                $category = new TableCategory($this->db);
+                if(!$category->readDataById($newValue)) {
+                    throw new AdmException('No Category with the given id '. $newValue. ' was found in the database.');
+                }
+            } elseif ($columnName === 'dat_deadline' && (string) $newValue !== '') {
+                if(!DateTime::createFromFormat('Y-m-d H:i', $newValue)) {
+                    throw new AdmException($gL10n->get('SYS_DATE_INVALID', array($gL10n->get('DAT_DEADLINE'), 'YYYY-MM-DD')));
+                } elseif (strtotime($newValue) > strtotime($this->getValue('dat_begin'))) {
+                    throw new AdmException('SYS_DEADLINE_AFTER_START');
                 }
             }
         }
 
-        if ($columnName === 'dat_end' && (int) $this->getValue('dat_all_day') === 1)
-        {
-            // hier muss bei ganztaegigen Terminen das bis-Datum um einen Tag hochgesetzt werden
-            // damit der Termin bei SQL-Abfragen richtig beruecksichtigt wird
-            $dateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $newValue);
-            $oneDayOffset = new \DateInterval('P1D');
-            $newValue = $dateTime->add($oneDayOffset)->format('Y-m-d H:i:s');
+        if ($columnName === 'dat_end' && (int) $this->getValue('dat_all_day') === 1) {
+            // for full day appointments, the end date must be the last second of the day
+            $dateTime = DateTime::createFromFormat('Y-m-d H:i', $newValue);
+            $newValue = $dateTime->format('Y-m-d') . ' 23:59:59';
         }
 
         return parent::setValue($columnName, $newValue, $checkValue);

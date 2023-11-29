@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Show a list with all roles where the user can assign or remove membership
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -12,13 +12,13 @@
 /******************************************************************************
  * Parameters:
  *
- * usr_id   : ID of the user whose roles should be edited
- * new_user : 0 - (Default) Edit roles of an existing user
- *            1 - Edit roles of a new user
- *            2 - (not relevant)
- *            3 - Edit roles of a registration
- * inline   : false - wird als eigene Seite angezeigt
- *            true  - nur "body" HTML Code
+ * user_uuid : UUID of the user whose roles should be edited
+ * new_user  : 0 - (Default) Edit roles of an existing user
+ *             1 - Edit roles of a new user
+ *             2 - (not relevant)
+ *             3 - Edit roles of a registration
+ * inline    : false - wird als eigene Seite angezeigt
+ *             true  - nur "body" HTML Code
  *
  *****************************************************************************/
 
@@ -26,43 +26,38 @@ require_once(__DIR__ . '/../../system/common.php');
 require(__DIR__ . '/../../system/login_valid.php');
 
 // Initialize and check the parameters
-$getUserId  = admFuncVariableIsValid($_GET, 'usr_id',   'int');
-$getNewUser = admFuncVariableIsValid($_GET, 'new_user', 'int');
-$getInline  = admFuncVariableIsValid($_GET, 'inline',   'bool');
+$getUserUuid = admFuncVariableIsValid($_GET, 'user_uuid', 'string');
+$getNewUser  = admFuncVariableIsValid($_GET, 'new_user', 'int');
+$getInline   = admFuncVariableIsValid($_GET, 'inline', 'bool');
 
 $html = '';
 
 // if user is allowed to assign at least one role then allow access
-if(!$gCurrentUser->assignRoles())
-{
+if (!$gCurrentUser->assignRoles()) {
     $gMessage->show($gL10n->get('SYS_NO_RIGHTS'));
     // => EXIT
 }
 
-$user = new User($gDb, $gProfileFields, $getUserId);
+$user = new User($gDb, $gProfileFields);
+$user->readDataByUuid($getUserUuid);
 
 // set headline of the script
 $headline = $gL10n->get('SYS_ROLE_ASSIGNMENT_FOR', array($user->getValue('FIRST_NAME'), $user->getValue('LAST_NAME')));
 
-if(!$getInline)
-{
+if (!$getInline) {
     $gNavigation->addUrl(CURRENT_URL, $headline);
 }
 // Testen ob Feste Rolle gesetzt ist
-if(isset($_SESSION['set_rol_id']))
-{
+if (isset($_SESSION['set_rol_id'])) {
     $setRoleId = $_SESSION['set_rol_id'];
     unset($_SESSION['set_rol_id']);
-}
-else
-{
+} else {
     $setRoleId = null;
 }
 
 $page = null;
 
-if($getInline)
-{
+if ($getInline) {
     header('Content-type: text/html; charset=utf-8');
 
     $html .= '<script type="text/javascript">
@@ -110,10 +105,7 @@ if($getInline)
         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
     </div>
     <div class="modal-body">';
-
-}
-else
-{
+} else {
     // create html page object
     $page = new HtmlPage('admidio-profile-roles', $headline);
     $page->addJavascriptFile(ADMIDIO_URL . FOLDER_MODULES . '/profile/profile.js');
@@ -122,7 +114,8 @@ else
 }
 
 // show headline of module
-$html .= '<form id="roles_assignment_form" action="'.SecurityUtils::encodeUrl(ADMIDIO_URL.FOLDER_MODULES.'/profile/roles_save.php', array('usr_id' => $getUserId, 'new_user' => $getNewUser, 'inline' => $getInline)).'" method="post">';
+$html .= '<form id="roles_assignment_form" action="'.SecurityUtils::encodeUrl(ADMIDIO_URL.FOLDER_MODULES.'/profile/roles_save.php', array('user_uuid' => $getUserUuid, 'new_user' => $getNewUser, 'inline' => $getInline)).'" method="post">
+    <input type="text" name="admidio-csrf-token" id="admidio-csrf-token" value="' . $gCurrentSession->getCsrfToken() . '" class="form-control invisible" hidden="hidden">';
 
 // Create table
 $table = new HtmlTable('role_assignment_table');
@@ -136,8 +129,7 @@ $table->addRowHeadingByArray($columnHeading);
 $table->setColumnAlignByArray(array('center', 'left', 'left', 'left'));
 $table->setColumnsWidth(array('10%', '30%', '45%', '15%'));
 
-if($gCurrentUser->manageRoles())
-{
+if ($gCurrentUser->manageRoles()) {
     // Benutzer mit Rollenrechten darf ALLE Rollen zuordnen
     $sql = 'SELECT cat_id, cat_name, rol_name, rol_description, rol_id, rol_leader_rights, mem_rol_id, mem_usr_id, mem_leader
               FROM '.TBL_ROLES.'
@@ -145,18 +137,21 @@ if($gCurrentUser->manageRoles())
                 ON cat_id = rol_cat_id
          LEFT JOIN '.TBL_MEMBERS.'
                 ON rol_id      = mem_rol_id
-               AND mem_usr_id  = ? -- $getUserId
+               AND mem_usr_id  = ? -- $user->getValue(\'usr_id\')
                AND mem_begin  <= ? -- DATE_NOW
                AND mem_end     > ? -- DATE_NOW
-             WHERE rol_valid   = 1
+             WHERE rol_valid   = true
                AND cat_name_intern <> \'EVENTS\'
-               AND (  cat_org_id = ? -- $gCurrentOrganization->getValue(\'org_id\')
+               AND (  cat_org_id = ? -- $gCurrentOrgId
                    OR cat_org_id IS NULL )
           ORDER BY cat_sequence, cat_id, rol_name';
-    $queryParams = array($getUserId, DATE_NOW, DATE_NOW, (int) $gCurrentOrganization->getValue('org_id'));
-}
-else
-{
+    $queryParams = array(
+        $user->getValue('usr_id'),
+        DATE_NOW,
+        DATE_NOW,
+        $gCurrentOrgId
+    );
+} else {
     // Ein Leiter darf nur Rollen zuordnen, bei denen er auch Leiter ist
     $sql = 'SELECT cat_id, cat_name, rol_name, rol_description, rol_id, rol_leader_rights,
                    mgl.mem_rol_id AS mem_rol_id, mgl.mem_usr_id AS mem_usr_id, mgl.mem_leader AS mem_leader
@@ -167,37 +162,36 @@ else
                 ON cat_id = rol_cat_id
          LEFT JOIN '.TBL_MEMBERS.' AS mgl
                 ON rol_id         = mgl.mem_rol_id
-               AND mgl.mem_usr_id = ? -- $getUserId
+               AND mgl.mem_usr_id = ? -- $user->getValue(\'usr_id\')
                AND mgl.mem_begin <= ? -- DATE_NOW
                AND mgl.mem_end    > ? -- DATE_NOW
-             WHERE bm.mem_usr_id  = ? -- $gCurrentUser->getValue(\'usr_id\')
+             WHERE bm.mem_usr_id  = ? -- $gCurrentUserId
                AND bm.mem_begin  <= ? -- DATE_NOW
                AND bm.mem_end     > ? -- DATE_NOW
-               AND bm.mem_leader  = 1
+               AND bm.mem_leader  = true
                AND rol_leader_rights IN (?,?) -- ROLE_LEADER_MEMBERS_ASSIGN,ROLE_LEADER_MEMBERS_ASSIGN_EDIT
-               AND rol_valid      = 1
+               AND rol_valid      = true
                AND cat_name_intern <> \'EVENTS\'
-               AND (  cat_org_id  = ? -- $gCurrentOrganization->getValue(\'org_id\')
+               AND (  cat_org_id  = ? -- $gCurrentOrgId
                    OR cat_org_id IS NULL )
           ORDER BY cat_sequence, cat_id, rol_name';
     $queryParams = array(
-        $getUserId,
+        $user->getValue('usr_id'),
         DATE_NOW,
         DATE_NOW,
-        $gCurrentUser->getValue('usr_id'),
+        $gCurrentUserId,
         DATE_NOW,
         DATE_NOW,
         ROLE_LEADER_MEMBERS_ASSIGN,
         ROLE_LEADER_MEMBERS_ASSIGN_EDIT,
-        $gCurrentOrganization->getValue('org_id')
+        $gCurrentOrgId
     );
 }
 $statement = $gDb->queryPrepared($sql, $queryParams);
 $category  = null;
 $role      = new TableRoles($gDb);
 
-while($row = $statement->fetch())
-{
+while ($row = $statement->fetch()) {
     $columnValues   = array();
     $memberChecked  = '';
     $memberDisabled = '';
@@ -207,29 +201,25 @@ while($row = $statement->fetch())
 
     // if user is assigned to this role
     // or if user is created in members.php of list module
-    if($row['mem_usr_id'] > 0 || ($getNewUser === 1 && (int) $role->getValue('rol_id') == $setRoleId))
-    {
+    if ($row['mem_usr_id'] > 0 || ($getNewUser === 1 && (int) $role->getValue('rol_id') == $setRoleId)) {
         $memberChecked = ' checked="checked" ';
     }
 
     // if role is administrator than only administrator can add new user,
     // but don't change their own membership, because there must be at least one administrator
-    if($role->getValue('rol_administrator') == 1
+    if ($role->getValue('rol_administrator') == 1
     && (!$gCurrentUser->isAdministrator()
-    || ($gCurrentUser->isAdministrator() && $getUserId === (int) $gCurrentUser->getValue('usr_id'))))
-    {
+    || ($gCurrentUser->isAdministrator() && (int) $user->getValue('usr_id') === $gCurrentUserId))) {
         $memberDisabled = ' disabled="disabled" ';
     }
 
     // if user is flagged as leader than check the ckeckbox ;)
-    if($row['mem_leader'] > 0)
-    {
+    if ($row['mem_leader'] > 0) {
         $leaderChecked = ' checked="checked" ';
     }
 
     // the leader of administrator role can only be set by a administrator
-    if($role->getValue('rol_administrator') == 1 && !$gCurrentUser->isAdministrator())
-    {
+    if ($role->getValue('rol_administrator') == 1 && !$gCurrentUser->isAdministrator()) {
         $leaderDisabled = ' disabled="disabled" ';
     }
 
@@ -241,8 +231,7 @@ while($row = $statement->fetch())
     );
 
     // if new category than display a category header
-    if($category !== (int) $role->getValue('cat_id'))
-    {
+    if ($category !== (int) $role->getValue('cat_id')) {
         $blockId = 'admCategory'.(int) $role->getValue('cat_id');
 
         $table->addTableBody();
@@ -259,29 +248,25 @@ while($row = $statement->fetch())
                        $leaderChecked.$leaderDisabled.' onclick="profileJS.markLeader(this);" value="1" />';
 
     // show icon that leaders have no additional rights
-    if((int) $role->getValue('rol_leader_rights') === ROLE_LEADER_NO_RIGHTS)
-    {
+    if ((int) $role->getValue('rol_leader_rights') === ROLE_LEADER_NO_RIGHTS) {
         $leaderRights .= '<i class="fas fa-info-circle" data-toggle="tooltip" title="'.$gL10n->get('SYS_LEADER_NO_ADDITIONAL_RIGHTS').'"></i>
                           <i class="fas fa-trash invisible"></i>';
     }
 
     // show icon with edit user right if leader has this right
-    if((int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_EDIT
-    || (int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_ASSIGN_EDIT)
-    {
+    if ((int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_EDIT
+    || (int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_ASSIGN_EDIT) {
         $leaderRights .= '<i class="fas fa-user-edit" data-toggle="tooltip" title="'.$gL10n->get('SYS_LEADER_EDIT_MEMBERS').'"></i>';
     }
 
     // show icon with assign role right if leader has this right
-    if((int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_ASSIGN
-    || (int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_ASSIGN_EDIT)
-    {
+    if ((int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_ASSIGN
+    || (int) $role->getValue('rol_leader_rights') === ROLE_LEADER_MEMBERS_ASSIGN_EDIT) {
         $leaderRights .= '<i class="fas fa-user-tie" data-toggle="tooltip" title="'.$gL10n->get('SYS_LEADER_ASSIGN_MEMBERS').'"></i>';
     }
 
     // show dummy icon if leader has not all rights
-    if((int) $role->getValue('rol_leader_rights') !== ROLE_LEADER_MEMBERS_ASSIGN_EDIT)
-    {
+    if ((int) $role->getValue('rol_leader_rights') !== ROLE_LEADER_MEMBERS_ASSIGN_EDIT) {
         $leaderRights .= '<i class="fas fa-trash invisible"></i>';
     }
     $columnValues[] = $leaderRights;
@@ -291,16 +276,13 @@ while($row = $statement->fetch())
 $html .= $table->show();
 
 $html .= '
-    <button class="btn-primary btn" id="btn_save" type="submit"><i class=\"fas fa-check\"></i>'.$gL10n->get('SYS_SAVE').'</button>
+    <button class="btn-primary btn" id="btn_save" type="submit"><i class="fas fa-check"></i>'.$gL10n->get('SYS_SAVE').'</button>
     <div class="form-alert" style="display: none;">&nbsp;</div>
 </form>';
 
-if($getInline)
-{
+if ($getInline) {
     echo $html.'</div>';
-}
-else
-{
+} else {
     $page->addHtml($html);
     $page->show();
 }

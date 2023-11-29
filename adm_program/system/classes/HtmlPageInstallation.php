@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -33,7 +33,6 @@
  * $page->showMessage('error', 'Message', 'Some error message.', $gL10n->get('SYS_OVERVIEW'), 'fa-home', ADMIDIO_URL . '/adm_program/overview.php');
  * ```
  */
-
 class HtmlPageInstallation extends HtmlPage
 {
     /**
@@ -50,8 +49,7 @@ class HtmlPageInstallation extends HtmlPage
         $this->addTemplateDir(ADMIDIO_PATH . FOLDER_INSTALLATION . '/templates/', 'inst');
 
         // if no modus set then set installation modus
-        if ($headline === '')
-        {
+        if ($headline === '') {
             $this->setInstallationModus();
         }
     }
@@ -62,7 +60,10 @@ class HtmlPageInstallation extends HtmlPage
      */
     private function assignDefaultVariables()
     {
-        global $gDebug, $gCurrentOrganization, $gValidLogin, $gL10n;
+        global $gDebug, $gSettingsManager, $gValidLogin, $gL10n;
+
+        $urlImprint = '';
+        $urlDataProtection = '';
 
         $this->assign('additionalHeaderData', $this->getHtmlAdditionalHeader());
         $this->assign('id', $this->id);
@@ -82,6 +83,18 @@ class HtmlPageInstallation extends HtmlPage
 
         // add translation object
         $this->assign('l10n', $gL10n);
+
+        // add imprint and data protection
+        if(is_object($gSettingsManager)) {
+            if ($gSettingsManager->has('system_url_imprint') && strlen($gSettingsManager->getString('system_url_imprint')) > 0) {
+                $urlImprint = $gSettingsManager->getString('system_url_imprint');
+            }
+            if ($gSettingsManager->has('system_url_data_protection') && strlen($gSettingsManager->getString('system_url_data_protection')) > 0) {
+                $urlDataProtection = $gSettingsManager->getString('system_url_data_protection');
+            }
+        }
+        $this->assign('urlImprint', $urlImprint);
+        $this->assign('urlDataProtection', $urlDataProtection);
     }
 
     /**
@@ -114,6 +127,9 @@ class HtmlPageInstallation extends HtmlPage
      */
     public function show()
     {
+        // disallow iFrame integration from other domains to avoid clickjacking attacks
+        header('X-Frame-Options: SAMEORIGIN');
+
         $this->assignDefaultVariables();
         $this->display('index.tpl');
     }
@@ -132,6 +148,9 @@ class HtmlPageInstallation extends HtmlPage
      */
     public function showMessage($outputMode, $headline, $text, $buttonText, $buttonIcon, $destinationUrl)
     {
+        // disallow iFrame integration from other domains to avoid clickjacking attacks
+        header('X-Frame-Options: SAMEORIGIN');
+
         $this->assign('outputMode', $outputMode);
         $this->assign('messageHeadline', $headline);
         $this->assign('messageText', $text);

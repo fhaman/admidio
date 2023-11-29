@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -62,8 +62,10 @@ class UserRegistration extends User
     {
         parent::__construct($database, $userFields, $userId);
 
-        if($organizationId > 0)
-        {
+        // changes to a registration user should not be relevant for the change notifications
+        $this->disableChangeNotification();
+
+        if ($organizationId > 0) {
             $this->setOrganization($organizationId);
         }
 
@@ -80,8 +82,6 @@ class UserRegistration extends User
      */
     public function acceptRegistration()
     {
-        global $gSettingsManager;
-
         $this->db->startTransaction();
 
         // set user active
@@ -98,8 +98,7 @@ class UserRegistration extends User
         $this->db->endTransaction();
 
         // only send mail if systemmails are enabled
-        if($gSettingsManager->getBool('enable_system_mails') && $this->sendEmail)
-        {
+        if ($GLOBALS['gSettingsManager']->getBool('system_notifications_enabled') && $this->sendEmail) {
             // send mail to user that his registration was accepted
             $sysmail = new SystemMail($this->db);
             $sysmail->addRecipientsByUserId((int) $this->getValue('usr_id'));
@@ -118,19 +117,14 @@ class UserRegistration extends User
      */
     public function adoptUser(User $user)
     {
-        global $gSettingsManager, $gProfileFields;
-
         // always adopt loginname and password to the destination user
         $user->setValue('usr_login_name', $this->getValue('usr_login_name'));
-        $user->setPassword($this->getValue('usr_password'), false, false);
+        $user->setPassword($this->getValue('usr_password'), false);
 
         // adopt all registration fields to the user if this is enabled in the settings
-        if($gSettingsManager->getBool('registration_adopt_all_data'))
-        {
-            foreach($this->mProfileFieldsData->getProfileFields() as $profileField)
-            {
-                if($profileField->getValue('usf_registration') && $this->mProfileFieldsData->getValue($profileField->getValue('usf_name_intern')) !== '')
-                {
+        if ($GLOBALS['gSettingsManager']->getBool('registration_adopt_all_data')) {
+            foreach ($this->mProfileFieldsData->getProfileFields() as $profileField) {
+                if ($profileField->getValue('usf_registration') && $this->mProfileFieldsData->getValue($profileField->getValue('usf_name_intern')) !== '') {
                     $user->setValue($profileField->getValue('usf_name_intern'), $this->mProfileFieldsData->getValue($profileField->getValue('usf_name_intern'), 'database'));
                 }
             }
@@ -145,12 +139,9 @@ class UserRegistration extends User
      */
     public function delete()
     {
-        global $gSettingsManager;
-
         // only send mail if systemmails are enabled and user has email address
         // mail must be send before user data is removed from this object
-        if($gSettingsManager->getBool('enable_system_mails') && $this->sendEmail && $this->getValue('EMAIL') !== '')
-        {
+        if ($GLOBALS['gSettingsManager']->getBool('system_notifications_enabled') && $this->sendEmail && $this->getValue('EMAIL') !== '') {
             // send mail to user that his registration was rejected
             $sysmail = new SystemMail($this->db);
             $sysmail->addRecipientsByUserId((int) $this->getValue('usr_id'));
@@ -164,15 +155,13 @@ class UserRegistration extends User
 
         // if user is not valid and has no other registrations
         // than delete user because he has no use for the system
-        if($this->getValue('usr_valid') == 0)
-        {
+        if (!$this->getValue('usr_valid')) {
             $sql = 'SELECT reg_id
                       FROM '.TBL_REGISTRATIONS.'
                      WHERE reg_usr_id = ? -- $this->getValue(\'usr_id\')';
             $registrationsStatement = $this->db->queryPrepared($sql, array((int) $this->getValue('usr_id')));
 
-            if($registrationsStatement->rowCount() === 0)
-            {
+            if ($registrationsStatement->rowCount() === 0) {
                 $return = parent::delete();
             }
         }
@@ -191,6 +180,28 @@ class UserRegistration extends User
     }
 
     /**
+     * Reads a record out of the table in database selected by the unique uuid column in the table.
+     * The name of the column must have the syntax table_prefix, underscore and uuid. E.g. usr_uuid.
+     * Per default all columns of the default table will be read and stored in the object.
+     * Not every Admidio table has a uuid. Please check the database structure before you use this method.
+     * @param int $uuid Unique uuid that should be searched.
+     * @return bool Returns **true** if one record is found
+     * @see TableAccess#readData
+     * @see TableAccess#readDataByColumns
+     */
+    public function readDataByUuid($uuid)
+    {
+        $returnValue = parent::readDataByUuid($uuid);
+
+        // create recordset for registration table
+        $this->tableRegistration = new TableAccess($this->db, TBL_REGISTRATIONS, 'reg');
+        $this->tableRegistration->readDataByColumns(array('reg_org_id' => $GLOBALS['gCurrentOrganization']->getValue('org_id'),
+            'reg_usr_id' => $this->getValue('usr_id')));
+
+        return $returnValue;
+    }
+
+    /**
      * Save all changed columns of the recordset in table of database. If it's a new user
      * than the registration table will also be filled with a new recordset and optional a
      * notification mail will be send to all users of roles that have the right to confirm registrations
@@ -200,19 +211,15 @@ class UserRegistration extends User
      */
     public function save($updateFingerPrint = true)
     {
-        global $gSettingsManager;
-
         // if new registration is saved then set user not valid
-        if($this->tableRegistration->isNewRecord())
-        {
+        if ($this->tableRegistration->isNewRecord()) {
             $this->setValue('usr_valid', 0);
         }
 
         $returnValue = parent::save($updateFingerPrint); // TODO Exception handling
 
         // if new registration is saved then save also record in registration table and send notification mail
-        if($this->tableRegistration->isNewRecord())
-        {
+        if ($this->tableRegistration->isNewRecord()) {
             // save registration record
             $this->tableRegistration->setValue('reg_org_id', $this->organizationId);
             $this->tableRegistration->setValue('reg_usr_id', (int) $this->getValue('usr_id'));
@@ -221,8 +228,8 @@ class UserRegistration extends User
 
             // send a notification mail to all role members of roles that can approve registrations
             // therefore the flags system mails and notification mail for roles with approve registration must be activated
-            if($gSettingsManager->getBool('enable_system_mails') && $gSettingsManager->getBool('enable_registration_admin_mail') && $this->sendEmail)
-            {
+            if ($GLOBALS['gSettingsManager']->getBool('system_notifications_enabled')
+                && $GLOBALS['gSettingsManager']->getBool('enable_registration_admin_mail') && $this->sendEmail) {
                 $sql = 'SELECT DISTINCT first_name.usd_value AS first_name, last_name.usd_value AS last_name, email.usd_value AS email
                           FROM '.TBL_MEMBERS.'
                     INNER JOIN '.TBL_ROLES.'
@@ -241,8 +248,8 @@ class UserRegistration extends User
                      LEFT JOIN '.TBL_USER_DATA.' AS last_name
                             ON last_name.usd_usr_id = usr_id
                            AND last_name.usd_usf_id = ? -- $this->mProfileFieldsData->getProperty(\'LAST_NAME\', \'usf_id\')
-                         WHERE rol_approve_users = 1
-                           AND usr_valid  = 1
+                         WHERE rol_approve_users = true
+                           AND usr_valid  = true
                            AND cat_org_id = ? -- $this->organizationId
                            AND mem_begin <= ? -- DATE_NOW
                            AND mem_end    > ? -- DATE_NOW';
@@ -256,11 +263,10 @@ class UserRegistration extends User
                 );
                 $emailStatement = $this->db->queryPrepared($sql, $queryParams);
 
-                while($row = $emailStatement->fetch())
-                {
+                while ($row = $emailStatement->fetch()) {
                     // send mail that a new registration is available
                     $sysmail = new SystemMail($this->db);
-                    $sysmail->addRecipient($row['email'], $row['first_name']. ' '. $row['last_name']);
+                    $sysmail->addRecipient($row['email'], $row['first_name'], $row['last_name']);
                     $sysmail->sendSystemMail('SYSMAIL_REGISTRATION_WEBMASTER', $this); // TODO Exception handling
                 }
             }

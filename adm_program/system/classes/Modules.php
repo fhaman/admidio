@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -167,8 +167,7 @@ abstract class Modules
      */
     public function getParameter($parameterName)
     {
-        if ($parameterName !== '' && array_key_exists($parameterName, $this->parameters))
-        {
+        if ($parameterName !== '' && array_key_exists($parameterName, $this->parameters)) {
             return $this->parameters[$parameterName];
         }
 
@@ -222,8 +221,12 @@ abstract class Modules
     protected function setOrder()
     {
         // check optional user parameter and make secure. Otherwise set default value
-        $this->order = admFuncVariableIsValid($this->properties, 'order', 'string',
-                                              array('defaultValue' => 'ASC', 'validValues' => array('ASC', 'DESC')));
+        $this->order = admFuncVariableIsValid(
+            $this->properties,
+            'order',
+            'string',
+            array('defaultValue' => 'ASC', 'validValues' => array('ASC', 'DESC'))
+        );
     }
 
     /**
@@ -244,20 +247,14 @@ abstract class Modules
      */
     public function setParameter($parameterName, $parameterValue)
     {
-        if ($parameterName !== '')
-        {
+        if ($parameterName !== '') {
             $this->parameters[$parameterName] = $parameterValue;
 
-            if ($parameterName === 'cat_id')
-            {
+            if ($parameterName === 'cat_id') {
                 $this->catId = (int) $parameterValue;
-            }
-            elseif ($parameterName === 'role_type')
-            {
+            } elseif ($parameterName === 'role_type') {
                 $this->roleType = (int) $parameterValue;
-            }
-            elseif ($parameterName === 'mode')
-            {
+            } elseif ($parameterName === 'mode') {
                 $this->mode = $parameterValue;
             }
         }

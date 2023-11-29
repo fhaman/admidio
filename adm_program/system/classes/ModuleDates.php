@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -129,10 +129,10 @@
  */
 class ModuleDates extends Modules
 {
-    const MEMBER_APPROVAL_STATE_INVITED   = 0;
-    const MEMBER_APPROVAL_STATE_TENTATIVE = 1;
-    const MEMBER_APPROVAL_STATE_ATTEND    = 2;
-    const MEMBER_APPROVAL_STATE_REFUSED   = 3;
+    public const MEMBER_APPROVAL_STATE_INVITED   = 0;
+    public const MEMBER_APPROVAL_STATE_TENTATIVE = 1;
+    public const MEMBER_APPROVAL_STATE_ATTEND    = 2;
+    public const MEMBER_APPROVAL_STATE_REFUSED   = 3;
 
     /**
      * @var array An array with all names of the calendars whose events should be shown
@@ -160,8 +160,7 @@ class ModuleDates extends Modules
     {
         global $gDb, $gSettingsManager, $gCurrentUser;
 
-        if ($limit === null)
-        {
+        if ($limit === null) {
             $limit = $gSettingsManager->getInt('dates_per_page');
         }
 
@@ -170,15 +169,17 @@ class ModuleDates extends Modules
         $sqlConditions = $this->getSqlConditions();
 
         // read dates from database
-        $sql = 'SELECT DISTINCT cat.*, dat.*, mem.mem_usr_id AS member_date_role, mem.mem_approved AS member_approval_state,
+        $sql = 'SELECT DISTINCT cat.*, dat.*, rol_uuid, mem.mem_usr_id AS member_date_role, mem.mem_approved AS member_approval_state,
                        mem.mem_leader, mem.mem_comment AS comment, mem.mem_count_guests AS additional_guests,' . $additional['fields'] . '
                   FROM ' . TBL_DATES . ' AS dat
             INNER JOIN ' . TBL_CATEGORIES . ' AS cat
                     ON cat_id = dat_cat_id
+             LEFT JOIN ' . TBL_ROLES . ' AS rol
+                    ON rol_id = dat_rol_id
                        ' . $additional['tables'] . '
              LEFT JOIN ' . TBL_MEMBERS . ' AS mem
                     ON mem.mem_rol_id = dat_rol_id
-                   AND mem.mem_usr_id = ? -- $gCurrentUser->getValue(\'usr_id\')
+                   AND mem.mem_usr_id = ? -- $gCurrentUserId
                    AND mem.mem_begin <= ? -- DATE_NOW
                    AND mem.mem_end    > ? -- DATE_NOW
                  WHERE cat_id IN ('.Database::getQmForValues($catIdParams).')
@@ -186,19 +187,17 @@ class ModuleDates extends Modules
               ORDER BY dat_begin ' . $this->order;
 
         // Parameter
-        if ($limit > 0)
-        {
+        if ($limit > 0) {
             $sql .= ' LIMIT ' . $limit;
         }
-        if ($startElement > 0)
-        {
+        if ($startElement > 0) {
             $sql .= ' OFFSET ' . $startElement;
         }
 
         $queryParams = array_merge(
             $additional['params'],
             array(
-                (int) $gCurrentUser->getValue('usr_id'),
+                $GLOBALS['gCurrentUserId'],
                 DATE_NOW,
                 DATE_NOW
             ),
@@ -224,8 +223,7 @@ class ModuleDates extends Modules
     {
         global $gDb, $gCurrentUser;
 
-        if ($this->id > 0)
-        {
+        if ($this->id > 0) {
             return 1;
         }
 
@@ -254,8 +252,7 @@ class ModuleDates extends Modules
         global $gDb, $gL10n, $gCurrentOrganization;
 
         // set headline with category name
-        if ($this->getParameter('cat_id') > 0)
-        {
+        if ($this->getParameter('cat_id') > 0) {
             $category  = new TableCategory($gDb, $this->getParameter('cat_id'));
             $headline .= ' - ' . $category->getValue('cat_name');
         }
@@ -264,13 +261,11 @@ class ModuleDates extends Modules
         // Define a prefix
         if ($this->getParameter('mode') === 'old'
         ||    ($this->getParameter('dateStartFormatEnglish') < DATE_NOW
-            && $this->getParameter('dateEndFormatEnglish')   < DATE_NOW))
-        {
+            && $this->getParameter('dateEndFormatEnglish')   < DATE_NOW)) {
             $headline = $gL10n->get('DAT_PREVIOUS_DATES', array('')) . $headline;
         }
 
-        if ($this->getParameter('view_mode') === 'print')
-        {
+        if ($this->getParameter('view_mode') === 'print') {
             $headline = $gCurrentOrganization->getValue('org_longname') . ' - ' . $headline;
         }
 
@@ -288,18 +283,15 @@ class ModuleDates extends Modules
         $sqlConditions = '';
         $params = array();
 
-        $id = (int) $this->getParameter('id');
+        $uuid = $this->getParameter('dat_uuid');
         // In case ID was permitted and user has rights
-        if ($id > 0)
-        {
-            $sqlConditions .= ' AND dat_id = ? '; // $id
-            $params[] = $id;
+        if (!empty($uuid)) {
+            $sqlConditions .= ' AND dat_uuid = ? '; // $id
+            $params[] = $uuid;
         }
         // ...otherwise get all additional events for a group
-        else
-        {
-            if (!$this->getParameter('dateStartFormatEnglish'))
-            {
+        else {
+            if (!$this->getParameter('dateStartFormatEnglish')) {
                 $this->setDateRange(); // TODO Exception handling
             }
 
@@ -310,19 +302,15 @@ class ModuleDates extends Modules
 
             $catId = (int) $this->getParameter('cat_id');
             // show all events from category
-            if ($catId > 0)
-            {
+            if ($catId > 0) {
                 $sqlConditions .= ' AND cat_id = ? '; // $catId
                 $params[] = $catId;
             }
         }
 
-        $currUsrId = (int) $gCurrentUser->getValue('usr_id');
         // add conditions for role permission
-        if ($currUsrId > 0)
-        {
-            switch ($this->getParameter('show'))
-            {
+        if ($GLOBALS['gCurrentUserId'] > 0) {
+            switch ($this->getParameter('show')) {
                 case 'maybe_participate':
                     $roleMemberships = $gCurrentUser->getRoleMemberships();
                     $sqlConditions .= '
@@ -342,17 +330,16 @@ class ModuleDates extends Modules
                         AND dat_rol_id IS NOT NULL
                         AND dat_rol_id IN (SELECT mem_rol_id
                                              FROM ' . TBL_MEMBERS . ' AS mem2
-                                            WHERE mem2.mem_usr_id = ? -- $currUsrId
+                                            WHERE mem2.mem_usr_id = ? -- $GLOBALS[\'gCurrentUserId\']
                                               AND mem2.mem_begin <= dat_begin
                                               AND mem2.mem_end   >= dat_end) ';
-                    $params[] = $currUsrId;
+                    $params[] = $GLOBALS['gCurrentUserId'];
                     break;
             }
         }
 
         // add valid calendars
-        if(count($this->calendarNames) > 0)
-        {
+        if (count($this->calendarNames) > 0) {
             $sqlConditions .= ' AND cat_name IN (\''. implode('', $this->calendarNames) . '\')';
         }
 
@@ -385,14 +372,12 @@ class ModuleDates extends Modules
     {
         global $gSettingsManager;
 
-        if ($dateRangeStart === '')
-        {
+        if ($dateRangeStart === '') {
             $dateStart = '1970-01-01';
             $dateEnd   = (date('Y') + 10) . '-12-31';
 
             // set date_from and date_to regarding to current mode
-            switch ($this->mode)
-            {
+            switch ($this->mode) {
                 case 'actual':
                     $dateRangeStart = DATE_NOW;
                     $dateRangeEnd   = $dateEnd;
@@ -408,22 +393,19 @@ class ModuleDates extends Modules
             }
         }
         // If mode=old then we want to have the events in reverse order ('DESC')
-        if ($this->mode === 'old')
-        {
+        if ($this->mode === 'old') {
             $this->order = 'DESC';
         }
 
         // Create date object and format date_from in English format and system format and push to daterange array
         $objDateFrom = \DateTime::createFromFormat('Y-m-d', $dateRangeStart);
 
-        if ($objDateFrom === false)
-        {
+        if ($objDateFrom === false) {
             // check if date_from has system format
             $objDateFrom = \DateTime::createFromFormat($gSettingsManager->getString('system_date'), $dateRangeStart);
         }
 
-        if ($objDateFrom === false)
-        {
+        if ($objDateFrom === false) {
             return false;
         }
 
@@ -433,14 +415,12 @@ class ModuleDates extends Modules
         // Create date object and format date_to in English format and system format and push to daterange array
         $objDateTo = \DateTime::createFromFormat('Y-m-d', $dateRangeEnd);
 
-        if ($objDateTo === false)
-        {
+        if ($objDateTo === false) {
             // check if date_from  has system format
             $objDateTo = \DateTime::createFromFormat($gSettingsManager->getString('system_date'), $dateRangeEnd);
         }
 
-        if ($objDateTo === false)
-        {
+        if ($objDateTo === false) {
             return false;
         }
 
@@ -448,8 +428,7 @@ class ModuleDates extends Modules
         $this->setParameter('dateEndFormatAdmidio', $objDateTo->format($gSettingsManager->getString('system_date')));
 
         // DateTo should be greater than DateFrom (Timestamp must be less)
-        if ($objDateFrom->getTimestamp() > $objDateTo->getTimestamp())
-        {
+        if ($objDateFrom->getTimestamp() > $objDateTo->getTimestamp()) {
             throw new AdmException('SYS_DATE_END_BEFORE_BEGIN');
         }
 
@@ -464,22 +443,26 @@ class ModuleDates extends Modules
     {
         global $gSettingsManager, $gProfileFields;
 
-        if ((int) $gSettingsManager->get('system_show_create_edit') === 1)
-        {
+        if ((int) $gSettingsManager->get('system_show_create_edit') === 1) {
             $lastNameUsfId  = (int) $gProfileFields->getProperty('LAST_NAME', 'usf_id');
             $firstNameUsfId = (int) $gProfileFields->getProperty('FIRST_NAME', 'usf_id');
 
             // show firstname and lastname of create and last change user
             $additionalFields = '
                 cre_firstname.usd_value || \' \' || cre_surname.usd_value AS create_name,
-                cha_firstname.usd_value || \' \' || cha_surname.usd_value AS change_name ';
+                cha_firstname.usd_value || \' \' || cha_surname.usd_value AS change_name,
+                cre_user.usr_uuid AS create_uuid, cha_user.usr_uuid AS change_uuid ';
             $additionalTables = '
+                LEFT JOIN ' . TBL_USERS . ' AS cre_user
+                       ON cre_user.usr_id = dat_usr_id_create
                 LEFT JOIN '.TBL_USER_DATA.' AS cre_surname
                        ON cre_surname.usd_usr_id = dat_usr_id_create
                       AND cre_surname.usd_usf_id = ? -- $lastNameUsfId
                 LEFT JOIN '.TBL_USER_DATA.' AS cre_firstname
                        ON cre_firstname.usd_usr_id = dat_usr_id_create
                       AND cre_firstname.usd_usf_id = ? -- $firstNameUsfId
+                LEFT JOIN ' . TBL_USERS . ' AS cha_user
+                       ON cha_user.usr_id = dat_usr_id_change
                 LEFT JOIN '.TBL_USER_DATA.' AS cha_surname
                        ON cha_surname.usd_usr_id = dat_usr_id_change
                       AND cha_surname.usd_usf_id = ? -- $lastNameUsfId
@@ -487,18 +470,17 @@ class ModuleDates extends Modules
                        ON cha_firstname.usd_usr_id = dat_usr_id_change
                       AND cha_firstname.usd_usf_id = ? -- $firstNameUsfId';
             $additionalParams = array($lastNameUsfId, $firstNameUsfId, $lastNameUsfId, $firstNameUsfId);
-        }
-        else
-        {
+        } else {
             // show username of create and last change user
             $additionalFields = '
-                cre_username.usr_login_name AS create_name,
-                cha_username.usr_login_name AS change_name ';
+                cre_user.usr_login_name AS create_name,
+                cha_user.usr_login_name AS change_name,
+                cre_user.usr_uuid AS create_uuid, cha_user.usr_uuid AS change_uuid ';
             $additionalTables = '
-                LEFT JOIN '.TBL_USERS.' AS cre_username
-                       ON cre_username.usr_id = dat_usr_id_create
-                LEFT JOIN '.TBL_USERS.' AS cha_username
-                       ON cha_username.usr_id = dat_usr_id_change ';
+                LEFT JOIN '.TBL_USERS.' AS cre_user
+                       ON cre_user.usr_id = dat_usr_id_create
+                LEFT JOIN '.TBL_USERS.' AS cha_user
+                       ON cha_user.usr_id = dat_usr_id_change ';
             $additionalParams = array();
         }
 

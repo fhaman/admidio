@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -47,7 +47,8 @@ class HtmlTable extends HtmlTableBasic
      */
     protected $rowsPerPage = 25;
     /**
-     * @var array<int,string> Array with entry for each column with the align of that column. Values are **right**, **left** or **center**.
+     * @var array<int,string> Array with entry for each column with the align of that column of datatables are not used.
+     * Values are **right**, **left** or **center**.
      */
     protected $columnsAlign = array();
     /**
@@ -102,13 +103,11 @@ class HtmlTable extends HtmlTableBasic
     {
         global $gL10n;
 
-        if ($class === null)
-        {
+        if ($class === null) {
             $class = 'table';
         }
 
-        if ($hoverRows)
-        {
+        if ($hoverRows) {
             $class .= ' table-hover';
         }
 
@@ -121,15 +120,13 @@ class HtmlTable extends HtmlTableBasic
 
         // when using DataTables we must set the width attribute so that all columns will change
         // dynamic their width if the browser window size change.
-        if ($datatables)
-        {
+        if ($datatables) {
             $this->addAttribute('width', '100%');
 
-            $this->datatablesInitParameters[] = '"language": {"url": "' . ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/datatables/language/datatables.' . $gL10n->getLanguageIsoCode() . '.lang"}';
+            $this->datatablesInitParameters[] = '"language": {"url": "' . ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/datatables/language/datatables.' . $gL10n->getLanguageIsoCode() . '.json"}';
         }
 
-        if ($htmlPage instanceof HtmlPage)
-        {
+        if ($htmlPage instanceof HtmlPage) {
             $this->htmlPage =& $htmlPage;
         }
     }
@@ -150,8 +147,7 @@ class HtmlTable extends HtmlTableBasic
     private function addRowTypeByArray($type, array $arrColumnValues, $id = null, array $arrAttributes = null, $colspan = 1, $colspanOffset = 1)
     {
         // set an id to the column
-        if ($id !== null)
-        {
+        if ($id !== null) {
             $arrAttributes['id'] = $id;
         }
 
@@ -160,8 +156,7 @@ class HtmlTable extends HtmlTableBasic
         $this->columnCount = count($arrColumnValues);
 
         // now add each column to the row
-        foreach ($arrColumnValues as $key => $value)
-        {
+        foreach ($arrColumnValues as $key => $value) {
             $this->prepareAndAddColumn($type, $key, $value, $colspan, $colspanOffset);
         }
     }
@@ -211,8 +206,7 @@ class HtmlTable extends HtmlTableBasic
     public function addRowByArray(array $arrColumnValues, $id = null, array $arrAttributes = null, $colspan = 1, $colspanOffset = 1)
     {
         // if body area wasn't defined until now then do it
-        if (!$this->tbody)
-        {
+        if (!$this->tbody) {
             $this->addTableBody();
         }
 
@@ -228,8 +222,7 @@ class HtmlTable extends HtmlTableBasic
     public function disableDatatablesColumnsSort(array $columnsSort)
     {
         // internal datatable columns starts with 0
-        foreach ($columnsSort as $columnSort)
-        {
+        foreach ($columnsSort as $columnSort) {
             $this->datatablesColumnDefs[] = '{ "orderable": false, "targets": ' . ($columnSort - 1) . ' }';
         }
     }
@@ -251,17 +244,14 @@ class HtmlTable extends HtmlTableBasic
         global $gSettingsManager;
 
         $this->htmlPage->addJavascriptFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/datatables/datatables.js');
-        $this->htmlPage->addJavascriptFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/moment/moment.min.js');
-        $this->htmlPage->addJavascriptFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/datatables-datetime-moment/datetime-moment.js');
         $this->htmlPage->addCssFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/datatables/datatables.css');
+        $this->htmlPage->addJavascriptFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/luxon/luxon.js');
+        $this->htmlPage->addJavascriptFile(ADMIDIO_URL . FOLDER_LIBS_CLIENT . '/datatables/datetime-luxon.js');
 
-        if ($this->rowCount > 10 || $this->serverSideProcessing)
-        {
+        if ($this->rowCount > 10 || $this->serverSideProcessing) {
             // set default page length of the table
             $this->datatablesInitParameters[] = '"pageLength": ' . $this->rowsPerPage;
-        }
-        else
-        {
+        } else {
             // disable page length menu
             $this->datatablesInitParameters[] = '"paging": false';
         }
@@ -275,18 +265,31 @@ class HtmlTable extends HtmlTableBasic
         $this->datatablesInitParameters[] = '"responsive": true';
 
         // set server-side processing
-        if ($this->serverSideProcessing)
-        {
+        if ($this->serverSideProcessing) {
             $this->datatablesInitParameters[] = '"processing": true';
             $this->datatablesInitParameters[] = '"serverSide": true';
             $this->datatablesInitParameters[] = '"ajax": "'.$this->serverSideFile.'"';
+
+            // add a callback function to link openPopup to the modal window. This will be used
+            // e.g. for the delete button or other things that need a modal window.
+            $this->datatablesInitParameters[] = '
+                "fnDrawCallback": function( oSettings ) {
+                    $(".openPopup").on("click",function(){
+                        $(".modal-dialog").attr("class", "modal-dialog " + $(this).attr("data-class"));
+                        $(".modal-content").load($(this).attr("data-href"),function(){
+                            $("#admidio-modal").modal({
+                                show:true
+                            });
+                        });
+                    });
+                }
+            ';
         }
 
         $javascriptGroup = '';
         $javascriptGroupFunction = '';
 
-        if ($this->groupedColumn >= 0)
-        {
+        if ($this->groupedColumn >= 0) {
             $javascriptGroup = ',
                 "drawCallback": function(settings) {
                     var api  = this.api();
@@ -316,15 +319,21 @@ class HtmlTable extends HtmlTableBasic
         }
 
         // if columnDefs were defined then create a comma separated string with all elements of the array
-        if (count($this->datatablesColumnDefs) > 0)
-        {
+        if (count($this->datatablesColumnDefs) > 0) {
             $this->datatablesInitParameters[] = '"columnDefs": [' . implode(',', $this->datatablesColumnDefs) . ']';
         }
 
-        $this->htmlPage->addJavascript('
-            $.fn.dataTable.moment(formatPhpToMoment("' . $gSettingsManager->getString('system_date') . '"));
-            $.fn.dataTable.moment(formatPhpToMoment("' . $gSettingsManager->getString('system_date') . ' ' . $gSettingsManager->getString('system_time') . '"));
-
+        // luxon doesn't work properly if we use server side processing. Than an JS error is thrown.
+        if (!$this->serverSideProcessing) {
+            $this->htmlPage->addJavascript(
+                '
+            $.fn.dataTable.luxon(formatPhpToLuxon("' . $gSettingsManager->getString('system_date') . '"));
+            $.fn.dataTable.luxon(formatPhpToLuxon("' . $gSettingsManager->getString('system_date') . ' ' . $gSettingsManager->getString('system_time') . '"));
+            ',true
+            );
+        }
+        $this->htmlPage->addJavascript(
+            '
             var admidioTable = $("#' . $this->id . '").DataTable({' .
             implode(',', $this->datatablesInitParameters) .
             $javascriptGroup . '
@@ -348,32 +357,25 @@ class HtmlTable extends HtmlTableBasic
         $columnAttributes = array();
 
         // set colspan if parameters are set
-        if ($colspan >= 2 && $colspanOffset === ($key + 1))
-        {
+        if ($colspan >= 2 && $colspanOffset === ($key + 1)) {
             $columnAttributes['colspan'] = $colspan;
         }
 
-        if (array_key_exists($key, $this->columnsAlign))
-        {
+        if (!$this->datatables && array_key_exists($key, $this->columnsAlign)) {
             $columnAttributes['style'] = 'text-align: ' . $this->columnsAlign[$key] . ';';
         }
 
         // if is array than check for sort or search values
-        if (is_array($value))
-        {
+        if (is_array($value)) {
             $columnValue = $value['value'];
 
-            if (array_key_exists('order', $value))
-            {
+            if (array_key_exists('order', $value)) {
                 $columnAttributes['data-order'] = $value['order'];
             }
-            if (array_key_exists('search', $value))
-            {
+            if (array_key_exists('search', $value)) {
                 $columnAttributes['data-search'] = $value['search'];
             }
-        }
-        else
-        {
+        } else {
             $columnValue = $value;
         }
 
@@ -389,7 +391,13 @@ class HtmlTable extends HtmlTableBasic
      */
     public function setColumnAlignByArray(array $columnsAlign)
     {
-        $this->columnsAlign = $columnsAlign;
+        if ($this->datatables) {
+            foreach ($columnsAlign as $columnNumber => $align) {
+                $this->datatablesColumnDefs[] = '{ targets: ' . $columnNumber . ', className: \'text-'.$align.'\' }';
+            }
+        } else {
+            $this->columnsAlign = $columnsAlign;
+        }
     }
 
     /**
@@ -403,8 +411,7 @@ class HtmlTable extends HtmlTableBasic
     public function setDatatablesAlternativeOrderColumns($selectedColumn, $arrayOrderColumns)
     {
         // internal datatable columns starts with 0
-        if (is_array($arrayOrderColumns))
-        {
+        if (is_array($arrayOrderColumns)) {
             /**
              * @param int $item
              * @return int decremented item
@@ -414,9 +421,7 @@ class HtmlTable extends HtmlTableBasic
                 return --$item;
             }
             $orderData = implode(',', array_map('decrement', $arrayOrderColumns));
-        }
-        else
-        {
+        } else {
             $orderData = --$arrayOrderColumns;
         }
 
@@ -432,9 +437,26 @@ class HtmlTable extends HtmlTableBasic
     public function setDatatablesColumnsHide(array $columnsHide)
     {
         // internal datatable columns starts with 0
-        foreach ($columnsHide as $columnHide)
-        {
+        foreach ($columnsHide as $columnHide) {
             $this->datatablesColumnDefs[] = '{ "visible": false, "targets": ' . ($columnHide - 1) . ' }';
+        }
+    }
+
+    /**
+     * Datatables will automatically hide columns if the screen will be to small e.g. on smartphones. You must than click
+     * on a + button and will view the hidden columns. With this method you can remove specific columns from that feature.
+     * These columns will always be shown. But be careful if you remove to much columns datatables must hide some columns
+     * anyway.
+     * @param array<int,int> $columnsNotHideResponsive An array which contain the columns that should not be hidden.
+     *                                                 The columns of the table starts with 1 (not 0).
+     * @param int            $priority                 Optional set a priority so datatable will first hide columns with
+     *                                                 low priority and after that with higher priority
+     */
+    public function setDatatablesColumnsNotHideResponsive(array $columnsNotHideResponsive, $priority = 1)
+    {
+        // internal datatable columns starts with 0
+        foreach ($columnsNotHideResponsive as $columnNotHideResponsive) {
+            $this->datatablesColumnDefs[] = '{ "responsivePriority": ' . $priority . ', "targets": ' . ($columnNotHideResponsive - 1) . ' }';
         }
     }
 
@@ -477,14 +499,10 @@ class HtmlTable extends HtmlTableBasic
     public function setDatatablesOrderColumns(array $arrayOrderColumns)
     {
         // internal datatable columns starts with 0
-        foreach ($arrayOrderColumns as $column)
-        {
-            if (is_array($column))
-            {
+        foreach ($arrayOrderColumns as $column) {
+            if (is_array($column)) {
                 $this->columnsOrder[] = '[' . ($column[0] - 1) . ', "' . $column[1] . '"]';
-            }
-            else
-            {
+            } else {
                 $this->columnsOrder[] = '[' . ($column - 1) . ', "asc"]';
             }
         }
@@ -511,8 +529,7 @@ class HtmlTable extends HtmlTableBasic
 
         $message = $gL10n->get($messageId);
 
-        switch ($messageType)
-        {
+        switch ($messageType) {
             case 'warning':
                 $this->messageNoRowsFound = '<div class="alert alert-warning alert-small" role="alert"><i class="fas fa-exclamation-triangle"></i>' . $message . '</div>';
                 break;
@@ -545,15 +562,13 @@ class HtmlTable extends HtmlTableBasic
      */
     public function show()
     {
-        if ($this->rowCount === 0 && !$this->serverSideProcessing)
-        {
+        if ($this->rowCount === 0 && !$this->serverSideProcessing) {
             // if table contains no rows then show message and not the table
             return '<p>' . $this->messageNoRowsFound . '</p>';
         }
 
         // show table content
-        if ($this->datatables && $this->htmlPage instanceof HtmlPage)
-        {
+        if ($this->datatables && $this->htmlPage instanceof HtmlPage) {
             $this->initDatatablesTable();
 
             return $this->getHtmlTable();

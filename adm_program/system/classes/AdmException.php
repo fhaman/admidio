@@ -1,7 +1,7 @@
 <?php
 /**
  ***********************************************************************************************
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -43,16 +43,16 @@ class AdmException extends Exception
     protected $params = array();
 
     /**
-     * Constructor that will **rollback** an open database translation
-     * @param string            $message Translation **id** that should be shown when exception is catched
+     * Constructor saves the parameters to the class and will call the parent constructor. Also a **rollback**
+     * of open database translation will be done.
+     * @param string            $message Translation **id** or simple text that should be shown when exception is catched
      * @param array<int,string> $params  Optional parameter for language string of translation id
      */
     public function __construct($message, $params = array())
     {
         global $gLogger, $gDb;
 
-        if ($gDb instanceof Database)
-        {
+        if ($gDb instanceof Database) {
             // if there is an open transaction we should perform a rollback
             $gDb->rollback();
         }
@@ -61,7 +61,6 @@ class AdmException extends Exception
 
         $this->params = $params;
 
-        // sicherstellen, dass alles korrekt zugewiesen wird
         parent::__construct($message);
     }
 
@@ -74,8 +73,7 @@ class AdmException extends Exception
         global $gL10n;
 
         // if text is a translation-id then translate it
-        if (Language::isTranslationStringId($this->message))
-        {
+        if (Language::isTranslationStringId($this->message)) {
             return $gL10n->get($this->message, $this->params);
         }
 
@@ -102,13 +100,10 @@ class AdmException extends Exception
         global $gMessage;
 
         // display database error to user
-        if ($gMessage instanceof Message)
-        {
+        if ($gMessage instanceof Message) {
             $gMessage->show($this->getText());
-            // => EXIT
-        }
-        else
-        {
+        // => EXIT
+        } else {
             $this->showText();
             // => EXIT
         }
@@ -119,8 +114,7 @@ class AdmException extends Exception
      */
     public function showText()
     {
-        if (!headers_sent())
-        {
+        if (!headers_sent()) {
             header('Content-type: text/html; charset=utf-8');
         }
 

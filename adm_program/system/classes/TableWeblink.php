@@ -3,7 +3,7 @@
  ***********************************************************************************************
  * Class manages access to database table adm_links
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see https://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
  ***********************************************************************************************
@@ -42,29 +42,20 @@ class TableWeblink extends TableAccess
     {
         global $gL10n;
 
-        if ($columnName === 'lnk_description')
-        {
-            if (!isset($this->dbColumns['lnk_description']))
-            {
+        if ($columnName === 'lnk_description') {
+            if (!isset($this->dbColumns['lnk_description'])) {
                 $value = '';
-            }
-            elseif ($format === 'database')
-            {
+            } elseif ($format === 'database') {
                 $value = html_entity_decode(StringUtils::strStripTags($this->dbColumns['lnk_description']));
-            }
-            else
-            {
+            } else {
                 $value = $this->dbColumns['lnk_description'];
             }
-        }
-        else
-        {
+        } else {
             $value = parent::getValue($columnName, $format);
         }
 
         // if text is a translation-id then translate it
-        if ($columnName === 'cat_name' && $format !== 'database' && Language::isTranslationStringId($value))
-        {
+        if ($columnName === 'cat_name' && $format !== 'database' && Language::isTranslationStringId($value)) {
             $value = $gL10n->get($value);
         }
 
@@ -82,19 +73,16 @@ class TableWeblink extends TableAccess
     {
         global $gCurrentOrganization, $gCurrentUser;
 
-        if($gCurrentUser->editDates()
-        || in_array((int) $this->getValue('cat_id'), $gCurrentUser->getAllEditableCategories('LNK'), true))
-        {
+        if ($gCurrentUser->editDates()
+        || in_array((int) $this->getValue('cat_id'), $gCurrentUser->getAllEditableCategories('LNK'), true)) {
             // if category belongs to current organization than weblinks are editable
-            if($this->getValue('cat_org_id') > 0
-            && (int) $this->getValue('cat_org_id') === (int) $gCurrentOrganization->getValue('org_id'))
-            {
+            if ($this->getValue('cat_org_id') > 0
+            && (int) $this->getValue('cat_org_id') === $GLOBALS['gCurrentOrgId']) {
                 return true;
             }
 
             // if category belongs to all organizations, child organization couldn't edit it
-            if((int) $this->getValue('cat_org_id') === 0 && !$gCurrentOrganization->isChildOrganization())
-            {
+            if ((int) $this->getValue('cat_org_id') === 0 && !$gCurrentOrganization->isChildOrganization()) {
                 return true;
             }
         }
@@ -116,6 +104,25 @@ class TableWeblink extends TableAccess
     }
 
     /**
+     * Save all changed columns of the recordset in table of database. Therefore the class remembers if it's
+     * a new record or if only an update is necessary. The update statement will only update the changed columns.
+     * If the table has columns for creator or editor than these column with their timestamp will be updated.
+     * For new records the organization and ip address will be set per default.
+     * @param bool $updateFingerPrint Default **true**. Will update the creator or editor of the recordset if table has columns like **usr_id_create** or **usr_id_changed**
+     * @return bool If an update or insert into the database was done then return true, otherwise false.
+     */
+    public function save($updateFingerPrint = true)
+    {
+        global $gCurrentUser;
+
+        if (!$this->saveChangesWithoutRights && !in_array((int) $this->getValue('lnk_cat_id'), $gCurrentUser->getAllEditableCategories('LNK'), true)) {
+            throw new AdmException('Weblink could not be saved because you are not allowed to edit weblinks of this category.');
+        }
+
+        return parent::save($updateFingerPrint);
+    }
+
+    /**
      * Set a new value for a column of the database table.
      * The value is only saved in the object. You must call the method **save** to store the new value to the database
      * @param string $columnName The name of the database column whose value should get a new value
@@ -127,28 +134,26 @@ class TableWeblink extends TableAccess
     {
         global $gL10n;
 
-        if ($checkValue)
-        {
-            if ($columnName === 'lnk_description')
-            {
-                return parent::setValue($columnName, $newValue, false);
-            }
-            elseif ($columnName === 'lnk_cat_id')
-            {
-                $category = new TableCategory($this->db, $newValue);
-
-                if (!$category->isVisible() || $category->getValue('cat_type') !== 'LNK')
-                {
-                    throw new AdmException('Category of the weblink '. $this->getValue('lnk_name'). ' could not be set
-                        because the category is not visible to the current user and current organization.');
+        if ($checkValue) {
+            if ($columnName === 'lnk_description') {
+                // don't check value because it contains expected html tags
+                $checkValue = false;
+            } elseif ($columnName === 'lnk_cat_id') {
+                $category = new TableCategory($this->db);
+                if(is_int($newValue)) {
+                    if(!$category->readDataById($newValue)) {
+                        throw new AdmException('No Category with the given id '. $newValue. ' was found in the database.');
+                    }
+                } else {
+                    if(!$category->readDataByUuid($newValue)) {
+                        throw new AdmException('No Category with the given uuid '. $newValue. ' was found in the database.');
+                    }
+                    $newValue = $category->getValue('cat_id');
                 }
-            }
-            elseif ($columnName === 'lnk_url' && $newValue !== '')
-            {
+            } elseif ($columnName === 'lnk_url' && $newValue !== '') {
                 $newValue = admFuncCheckUrl($newValue);
 
-                if ($newValue === false)
-                {
+                if ($newValue === false) {
                     throw new AdmException('SYS_URL_INVALID_CHAR', array($gL10n->get('SYS_WEBSITE')));
                 }
             }

@@ -3,38 +3,33 @@
  ***********************************************************************************************
  * Create and edit categories
  *
- * @copyright 2004-2021 The Admidio Team
+ * @copyright 2004-2023 The Admidio Team
  * @see http://www.admidio.org/
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
- ***********************************************************************************************
- */
-
-/******************************************************************************
+ *
  * Parameters:
  *
- * men_id: Id of the menu that should be edited
+ * menu_uuid: UUID of the menu entry that should be edited
  *
  ****************************************************************************/
-
 require_once(__DIR__ . '/../../system/common.php');
 require(__DIR__ . '/../../system/login_valid.php');
 
 // Initialize and check the parameters
-$getMenId = admFuncVariableIsValid($_GET, 'men_id', 'int');
+$getMenuUuid = admFuncVariableIsValid($_GET, 'menu_uuid', 'string');
 
-// Rechte pruefen
-if(!$gCurrentUser->isAdministrator())
-{
+// check rights
+if (!$gCurrentUser->isAdministrator()) {
     $gMessage->show($gL10n->get('SYS_NO_RIGHTS'));
 }
 
 /**
  * @param array<int,string> $menuList
- * @param int               $level
- * @param int               $menId
- * @param int               $parentId
+ * @param int $level
+ * @param int $menId
+ * @param int|null $parentId
  */
-function subMenu(&$menuList, $level, $menId, $parentId = null)
+function subMenu(array &$menuList, int $level, int $menId, int $parentId = null)
 {
     global $gDb;
 
@@ -42,19 +37,16 @@ function subMenu(&$menuList, $level, $menId, $parentId = null)
     $queryParams = array($menId);
 
     // Erfassen des auszugebenden Menu
-    if ($parentId > 0)
-    {
+    if ($parentId > 0) {
         $sqlConditionParentId .= ' AND men_men_id_parent = ? -- $parentId';
         $queryParams[] = $parentId;
-    }
-    else
-    {
+    } else {
         $sqlConditionParentId .= ' AND men_men_id_parent IS NULL';
     }
 
     $sql = 'SELECT *
               FROM '.TBL_MENU.'
-             WHERE men_node = 1
+             WHERE men_node = true
                AND men_id  <> ? -- $menu->getValue(\'men_id\')
                    '.$sqlConditionParentId;
     $childStatement = $gDb->queryPrepared($sql, $queryParams);
@@ -62,8 +54,7 @@ function subMenu(&$menuList, $level, $menId, $parentId = null)
     $parentMenu = new TableMenu($gDb);
     $einschub = str_repeat('&nbsp;', $level * 3) . '&#151;&nbsp;';
 
-    while($menuEntry = $childStatement->fetch())
-    {
+    while ($menuEntry = $childStatement->fetch()) {
         $parentMenu->clear();
         $parentMenu->setArray($menuEntry);
 
@@ -74,36 +65,28 @@ function subMenu(&$menuList, $level, $menId, $parentId = null)
     }
 }
 
-// set module headline
-if($getMenId > 0)
-{
-    $headline = $gL10n->get('SYS_EDIT_VAR', array($gL10n->get('SYS_MENU')));
-}
-else
-{
-    $headline = $gL10n->get('SYS_CREATE_VAR', array($gL10n->get('SYS_MENU')));
-}
-
 // create menu object
 $menu = new TableMenu($gDb);
 
-// systemcategories should not be renamed
+// system categories should not be renamed
 $roleViewSet[] = 0;
 
-if($getMenId > 0)
-{
-    $menu->readDataById($getMenId);
+if ($getMenuUuid !== '') {
+    $headline = $gL10n->get('SYS_EDIT_VAR', array($gL10n->get('SYS_MENU')));
+
+    $menu->readDataByUuid($getMenuUuid);
 
     // Read current roles rights of the menu
-    $display = new RolesRights($gDb, 'menu_view', $getMenId);
+    $display = new RolesRights($gDb, 'menu_view', $menu->getValue('men_id'));
     $roleViewSet = $display->getRolesIds();
+} else {
+    $headline = $gL10n->get('SYS_CREATE_VAR', array($gL10n->get('SYS_MENU')));
 }
 
-if(isset($_SESSION['menu_request']))
-{
+if (isset($_SESSION['menu_request'])) {
     // due to incorrect input, the user has returned to this form
     // Now write the previously entered content into the object
-    $menu->setArray($_SESSION['menu_request']);
+    $menu->setArray(SecurityUtils::encodeHTML(StringUtils::strStripTags($_SESSION['menu_request'])));
     unset($_SESSION['menu_request']);
 }
 
@@ -119,16 +102,15 @@ $sqlRoles = 'SELECT rol_id, rol_name, org_shortname, cat_name
                  ON cat_id = rol_cat_id
          INNER JOIN '.TBL_ORGANIZATIONS.'
                  ON org_id = cat_org_id
-              WHERE rol_valid  = 1
-                AND rol_system = 0
+              WHERE rol_valid  = true
+                AND rol_system = false
                 AND cat_name_intern <> \'EVENTS\'
            ORDER BY cat_name, rol_name';
 $rolesViewStatement = $gDb->queryPrepared($sqlRoles);
 
 $parentRoleViewSet = array();
-while($rowViewRoles = $rolesViewStatement->fetch())
-{
-    // Jede Rolle wird nun dem Array hinzugefuegt
+while ($rowViewRoles = $rolesViewStatement->fetch()) {
+    // Each role is now added to this array
     $parentRoleViewSet[] = array(
         $rowViewRoles['rol_id'],
         $rowViewRoles['rol_name'] . ' (' . $rowViewRoles['org_shortname'] . ')',
@@ -137,13 +119,12 @@ while($rowViewRoles = $rolesViewStatement->fetch())
 }
 
 // show form
-$form = new HtmlForm('menu_edit_form', SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/menu/menu_function.php', array('men_id' => $getMenId, 'mode' => 1)), $page);
+$form = new HtmlForm('menu_edit_form', SecurityUtils::encodeUrl(ADMIDIO_URL . FOLDER_MODULES . '/menu/menu_function.php', array('menu_uuid' => $getMenuUuid, 'mode' => 1)), $page);
 
 $fieldRequired = HtmlForm::FIELD_REQUIRED;
 $fieldDefault  = HtmlForm::FIELD_DEFAULT;
 
-if((bool) $menu->getValue('men_standard'))
-{
+if ($menu->getValue('men_standard')) {
     $fieldRequired = HtmlForm::FIELD_DISABLED;
     $fieldDefault  = HtmlForm::FIELD_DISABLED;
 }
@@ -152,25 +133,33 @@ $menuList = array();
 subMenu($menuList, 1, (int) $menu->getValue('men_id'));
 
 $form->addInput(
-    'men_name', $gL10n->get('SYS_NAME'), $menu->getValue('men_name', 'database'),
+    'men_name',
+    $gL10n->get('SYS_NAME'),
+    htmlentities($menu->getValue('men_name', 'database'), ENT_QUOTES),
     array('maxLength' => 100, 'property'=> HtmlForm::FIELD_REQUIRED, 'helpTextIdLabel' => 'SYS_MENU_NAME_DESC')
 );
 
-if($getMenId > 0)
-{
+if ($getMenuUuid !== '') {
     $form->addInput(
-        'men_name_intern', $gL10n->get('SYS_INTERNAL_NAME'), $menu->getValue('men_name_intern', 'database'),
+        'men_name_intern',
+        $gL10n->get('SYS_INTERNAL_NAME'),
+        $menu->getValue('men_name_intern'),
         array('maxLength' => 100, 'property' => HtmlForm::FIELD_DISABLED, 'helpTextIdLabel' => 'SYS_INTERNAL_NAME_DESC')
     );
 }
 
 $form->addMultilineTextInput(
-    'men_description', $gL10n->get('SYS_DESCRIPTION'), $menu->getValue('men_description', 'database'), 2,
+    'men_description',
+    $gL10n->get('SYS_DESCRIPTION'),
+    $menu->getValue('men_description'),
+    2,
     array('maxLength' => 4000)
 );
 
 $form->addSelectBox(
-    'men_men_id_parent', $gL10n->get('SYS_MENU_LEVEL'), $menuList,
+    'men_men_id_parent',
+    $gL10n->get('SYS_MENU_LEVEL'),
+    $menuList,
     array(
         'property'        => HtmlForm::FIELD_REQUIRED,
         'defaultValue'    => (int) $menu->getValue('men_men_id_parent'),
@@ -182,7 +171,10 @@ $sql = 'SELECT com_id, com_name
           FROM '.TBL_COMPONENTS.'
       ORDER BY com_name';
 $form->addSelectBoxFromSql(
-    'men_com_id', $gL10n->get('SYS_MODULE_RIGHTS'), $gDb, $sql,
+    'men_com_id',
+    $gL10n->get('SYS_MODULE_RIGHTS'),
+    $gDb,
+    $sql,
     array(
         'property'        => $fieldDefault,
         'defaultValue'    => (int) $menu->getValue('men_com_id'),
@@ -191,20 +183,25 @@ $form->addSelectBoxFromSql(
 );
 
 $form->addSelectBox(
-    'menu_view', $gL10n->get('SYS_VISIBLE_FOR'), $parentRoleViewSet,
+    'menu_view',
+    $gL10n->get('SYS_VISIBLE_FOR'),
+    $parentRoleViewSet,
     array('defaultValue' => $roleViewSet, 'multiselect' => true)
 );
 
-if((bool) $menu->getValue('men_node') === false)
-{
+if ((bool) $menu->getValue('men_node') === false) {
     $form->addInput(
-        'men_url', $gL10n->get('ORG_URL'), $menu->getValue('men_url', 'database'),
-        array('maxLength' => 100, 'property' => $fieldRequired)
+        'men_url',
+        $gL10n->get('SYS_URL'),
+        $menu->getValue('men_url'),
+        array('maxLength' => 2000, 'property' => $fieldRequired)
     );
 }
 
 $form->addInput(
-    'men_icon', $gL10n->get('SYS_ICON'), $menu->getValue('men_icon', 'database'),
+    'men_icon',
+    $gL10n->get('SYS_ICON'),
+    $menu->getValue('men_icon'),
     array(
         'maxLength' => 100,
         'helpTextIdLabel' => $gL10n->get('SYS_FONT_AWESOME_DESC', array('<a href="https://fontawesome.com/icons?d=gallery&s=brands,solid&m=free" target="_blank">', '</a>')),
@@ -213,8 +210,9 @@ $form->addInput(
 );
 
 $form->addSubmitButton(
-    'btn_save', $gL10n->get('SYS_SAVE'),
-    array('icon' => 'fa-check')
+    'btn_save',
+    $gL10n->get('SYS_SAVE'),
+    array('icon' => 'fa-check', 'class' => ' offset-sm-3')
 );
 
 // add form to html page and show page
