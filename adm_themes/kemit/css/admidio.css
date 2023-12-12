@@ -8,20 +8,20 @@
  * Here you can edit the look and feel of Admidio
  *
  *****************************************************************************/
-
-#admidio-main-navbar {
-    background-color: #349aaa;
-    min-height: 90px;
-    max-height: 140px;
-    position: sticky;
-    padding-bottom: 0;
+body {
+    font-family: 'Abel', serif;
 }
 
 #admidio-main-navbar {
+    background-color: #18357b;
+    min-height: 70px;
     color: #ffffff;
     font-weight: bold;
     font-size: 1.7rem;
+    position: sticky;
     padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: solid 1px #ffffff;
 }
 
 #admidio-main-navbar .navbar-brand img {
@@ -29,12 +29,21 @@
 }
 
 #admidio-main-navbar a {
-    color: #263340;
+    color: #ffffff;
     font-size: 1rem
 }
 
 #admidio-main-navbar a:hover {
-    color: #000000;
+    color: #d94a49;
+}
+.hamburger {
+    color: #ffffff !important;
+}
+.hamburger:active {
+    background-color: #263340;
+}
+.hamburger:visited {
+    background-color: #263340;
 }
 
 @media (max-width: 767px)
@@ -118,7 +127,8 @@
     text-transform: uppercase;
     padding: 8px 16px;
     margin: 0;
-    color: rgba(222, 222, 222, 0.65);
+    color: #6495b0;
+    border-bottom: solid 1px #df2424;
 }
 
 /***********************************/
@@ -150,15 +160,16 @@ body {
 }
 
 a, .btn-link, .page-link, a.btn {
-    color: #349aaa;
+    color: #023668;
 }
 
 a:hover, .page-link:hover, a.btn:hover {
-    color: #25717d;
+    color: #263340;
 }
 
 a.btn-primary, .btn-secondary {
     color: #f7f7f7 !important;
+    background-color: #023668;
 }
 
 a.btn-primary:hover, .btn-secondary:hover {
@@ -166,18 +177,18 @@ a.btn-primary:hover, .btn-secondary:hover {
 }
 
 .btn-primary {
-    background-color: #349aaa;
-    border-color: #349aaa;
+    background-color: #023668;
+    border-color: #023668;
 }
 
 .btn-primary:hover {
-    background-color: #25717d;
-    border-color: #25717d;
+    background-color: #6495b0;
+    border-color: #6495b0;
 }
 
 .btn-primary.disabled, .btn-primary:disabled {
-    background-color: #6b979f;
-    border-color: #6b979f;
+    background-color: #ddd;
+    border-color: #ddd;
 }
 
 /* default distance between elements */
@@ -213,7 +224,7 @@ label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
 }
 
 .alert-info {
-    background-color: #abd7e0;
+    background-color: #263340;
 }
 
 /* show vertical btn group in mobile view */
@@ -239,7 +250,7 @@ label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
     font-family: "Font Awesome 5 Free", serif;
     font-size: 6pt;
     content: "\f111";
-    color: #d91515;
+    color: #d94a49;
     white-space: nowrap;
     vertical-align: super;
     margin-left: 3px;
@@ -265,13 +276,12 @@ form, .message {
 
 .form-control:focus, .select2-container--bootstrap4.select2-container--focus .select2-selection,
 input[type=checkbox]:focus, button:focus {
-    border-color: #349aaa;
-    background-color: #d6ebee;
+    border-color: #263340;
     box-shadow: none !important;
 }
 
 .btn-primary:focus {
-    background-color: #25717d !important;
+    background-color: #263340 !important;
 }
 
 input[type=checkbox] {
@@ -341,8 +351,11 @@ input[type=time] {
 
 .admidio-blog .card-header, .admidio-blog .card-body, .admidio-blog .card-footer,
 .admidio-field-group .card-header, .admidio-field-group .card-body, .admidio-field-group .card-footer {
-    border: none;
+    border: solid 1px #999999;
     background-color: #eeeeee;
+}
+.card-body {
+    border: solid 1px #999999;
 }
 
 .card-header {
@@ -450,15 +463,18 @@ input[type=time] {
 }
 
 .accordion .card-header {
-    color: #349aaa;
+    color: #263340;
 }
 
 /***********************************/
 /* Various settings */
 /***********************************/
-
 .admidio-opacity-reduced {
     opacity: 0.4;
+}
+.profile {
+    padding-left: 5px;
+    font-family: inherit !important;
 }
 
 .badge {
@@ -502,7 +518,7 @@ input[type=time] {
 }
 
 .admidio-info-icon {
-    color: #4496dd;
+    color: #263340;
     cursor: pointer;
     margin-left: 6px;
 }
@@ -573,4 +589,17 @@ input[type=time] {
 
 #plugin-login-form .btn {
     margin-bottom: 15px;
+}
+
+.footer {
+    position: fixed;
+    padding: 5px;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: #263340;
+    border-top: solid 1px #ffffff;
+    color: white;
+    text-align: center;
+    z-index: 1000;
 }
