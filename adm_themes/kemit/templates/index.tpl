@@ -15,7 +15,7 @@
 
     {* Additional header informations that will be displayed if the header was set through $page->addHeader() *}
     {$additionalHeaderData}
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Abel"/>
+    <link rel="stylesheet" href="{$urlTheme}/fonts/Abel"/>
     <link rel="stylesheet" type="text/css" href="{$urlTheme}/css/admidio.css" />
 
     <script type="text/javascript">
@@ -71,7 +71,7 @@
                  alt="{$l10n->get('SYS_ADMIDIO_SHORT_DESC')}" title="{$l10n->get('SYS_ADMIDIO_SHORT_DESC')}">
         </a>
         <span id="headline-organization" class="d-block d-lg-none">{$organizationName}</span>
-        <span id="headline-membership" class="d-none d-lg-block">{$l10n->get('SYS_ONLINE_MEMBERSHIP_ADMINISTRATION')} - {$organizationName}</span>
+        <span id="headline-membership" class="d-none d-lg-block">{$organizationName}</span>
 
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -79,19 +79,19 @@
         <div id="navbarNav" class="collapse navbar-collapse">
             <ul class="navbar-nav ml-auto">
             {if $validLogin}
-                <li class="nav-item profile">
-                    <a class="btn btn-secondary" href="{$urlAdmidio}/adm_program/modules/profile/profile.php">&nbsp;{$l10n->get('PRO_MY_PROFILE')}</a>
+                <li class="nav-item">
+                    <a class="profile btn btn-primary" href="{$urlAdmidio}/adm_program/modules/profile/profile.php">&nbsp;{$l10n->get('PRO_MY_PROFILE')}</a>
                 </li>
-                <li class="nav-item profile">
-                    <a class="btn btn-secondary" href="{$urlAdmidio}/adm_program/system/logout.php">&nbsp;{$l10n->get('SYS_LOGOUT')}</a>
+                <li class="nav-item">
+                    <a class="profile btn btn-primary" href="{$urlAdmidio}/adm_program/system/logout.php">&nbsp;{$l10n->get('SYS_LOGOUT')}</a>
                 </li>
             {else}
-                <li class="nav-item profile">
-                    <a class="btn btn-secondary" href="{$urlAdmidio}/adm_program/system/login.php">&nbsp;{$l10n->get('SYS_LOGIN')}</a>
+                <li class="nav-item">
+                    <a class="profile btn btn-primary" href="{$urlAdmidio}/adm_program/system/login.php">&nbsp;{$l10n->get('SYS_LOGIN')}</a>
                 </li>
                 {if $registrationEnabled}
-                    <li class="nav-item profile">
-                        <a class="btn btn-secondary" href="{$urlAdmidio}/adm_program/modules/registration/registration.php">&nbsp;{$l10n->get('SYS_REGISTRATION')}</a>
+                    <li class="nav-item">
+                        <a class="profile btn btn-primary" href="{$urlAdmidio}/adm_program/modules/registration/registration.php">&nbsp;{$l10n->get('SYS_REGISTRATION')}</a>
                     </li>
                 {/if}
             {/if}
@@ -135,7 +135,6 @@
                         <h1 class="admidio-module-headline">{$headline}</h1>
                         {$menuFunctions->getHtml()}
                     </div>
-
                     {* The main content of the page that will be generated through the Admidio scripts *}
                     {$content}
 
@@ -143,19 +142,16 @@
                     {if $templateFile != ''}
                         {include file=$templateFile}
                     {/if}
-
-                    <div id="imprint">&copy; {load_admidio_plugin plugin="year" file="year.php"} <a href="https://www.kemitnetwork.net">Kemitnetwork UG</a>
-                        {if $urlImprint != ''}
-                            &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlImprint}" target="_blank">{$l10n->get('SYS_IMPRINT')}</a>
-                        {/if}
-                        {if $urlDataProtection != ''}
-                            &nbsp;&nbsp;-&nbsp;&nbsp;<a href="{$urlDataProtection}" target="_blank">{$l10n->get('SYS_DATA_PROTECTION')}</a>
-                        {/if}
-                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="footer">&copy; KemitNetwork 2021 - {load_admidio_plugin plugin="year" file="year.php"}</div>
+    <div class="footer">&copy; Kemitnetwork 2021 - {load_admidio_plugin plugin="year" file="year.php"}
+        {if $urlImprint != ''}
+            &nbsp;&nbsp;-&nbsp;&nbsp;<a class="imprint-footer" href="{$urlImprint}" target="_blank">{$l10n->get('SYS_IMPRINT')}</a>
+        {/if}
+        {if $urlDataProtection != ''}
+            &nbsp;&nbsp;-&nbsp;&nbsp;<a class="imprint-footer" href="{$urlDataProtection}" target="_blank">{$l10n->get('SYS_DATA_PROTECTION')}</a>
+        {/if}</div>
 </body>
 </html>

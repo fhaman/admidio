@@ -1471,4 +1471,35 @@
   <string name="SYS_YOUR_LISTS">Deine Listen</string>
   <string name="SYS_YOUR_NAME">Ihr Name</string>
   <string name="SYS_Z_TO_A">Z bis A</string>
+  <!-- 1. Contact person -->
+  <string name="SYS_CONTACT_LAST_NAME_1">Nachname</string>
+  <string name="SYS_CONTACT_LAST_NAME_1_DESC">Vorname der 1. Kontaktperson</string>
+  <string name="SYS_CONTACT_FIRST_NAME_1">Vorname</string>
+  <string name="SYS_CONTACT_FIRST_NAME_1_DESC">Vorname der 1. Kontaktperson</string>
+  <string name="SYS_CONTACT_PHONE_1">Telefon</string>
+  <string name="SYS_CONTACT_PHONE_1_DESC">Telefon der 1. Kontaktperson</string>
+  <string name="SYS_CONTACT_EMAIL_1">Email</string>
+  <string name="SYS_CONTACT_EMAIL_1_DESC">E-Mail der 1. Kontaktperson</string>
+  <string name="SYS_CONTACT_CITY_1">Ort</string>
+  <string name="SYS_CONTACT_CITY_1_DESC">Ort der 1. Kontaktperson</string>
+  <string name="SYS_CONTACT_COUNTRY_1">Land</string>
+  <string name="SYS_CONTACT_COUNTRY_1_DESC">Land der 1. Kontaktperson</string>
+  <string name="SYS_CONTACT_STREET_1">Straße und Nummer</string>
+  <string name="SYS_CONTACT_STREET_1_DESC">Straße der 1. Kontaktperson</string>
+
+  <!-- 2. Contact person -->
+  <string name="SYS_CONTACT_LAST_NAME_2">Nachname</string>
+  <string name="SYS_CONTACT_LAST_NAME_2_DESC">Nachname der 2. Kontaktperson</string>
+  <string name="SYS_CONTACT_FIRST_NAME_2">Vorname</string>
+  <string name="SYS_CONTACT_FIRST_NAME_2_DESC">Vorname der 2. Kontaktperson</string>
+  <string name="SYS_CONTACT_PHONE_2">Telefon</string>
+  <string name="SYS_CONTACT_PHONE_2_DESC">Telefon der 2. Kontaktperson</string>
+  <string name="SYS_CONTACT_EMAIL_2">E-Mail</string>
+  <string name="SYS_CONTACT_EMAIL_2_DESC">Email der 2. Kontaktperson</string>
+  <string name="SYS_CONTACT_STREET_2">Straße und Nummer</string>
+  <string name="SYS_CONTACT_STREET_2_DESC">Straße und Nummer der 2. Kontaktperson</string>
+  <string name="SYS_CONTACT_CITY_2">Ort</string>
+  <string name="SYS_CONTACT_CITY_2_DESC">Ort der 2. Kontaktperson</string>
+  <string name="SYS_CONTACT_COUNTRY_2">Land</string>
+  <string name="SYS_CONTACT_COUNTRY_2_DESC">Land der 2. Kontaktperson</string>
 </resources>

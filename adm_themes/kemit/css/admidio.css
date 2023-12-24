@@ -1,19 +1,8 @@
-/******************************************************************************
- * Cascading-Style-Sheets file for Admidio
- *
- * @copyright 2004-2023 The Admidio Team
- * @see https://www.admidio.org/
- * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License v2.0 only
- *
- * Here you can edit the look and feel of Admidio
- *
- *****************************************************************************/
 body {
-    font-family: 'Abel', serif;
+    font-family: Abel, Verdana, 'Helvetica Neue', Helvetica, serif;
 }
-
 #admidio-main-navbar {
-    background-color: #18357b;
+    background-image: linear-gradient(90deg, #263340, #18357b);
     min-height: 70px;
     color: #ffffff;
     font-weight: bold;
@@ -64,6 +53,9 @@ body {
     order: 1;
     padding-left: 15px;
     padding-right: 15px;
+}
+.admidio-field-group {
+    background-color: #eeeeee;
 }
 
 /***********************************/
@@ -151,6 +143,7 @@ body {
     }
 }
 
+
 /***********************************/
 /* Default tags */
 /***********************************/
@@ -206,7 +199,6 @@ a.btn-primary:hover, .btn-secondary:hover {
 label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
     margin-right: 5px;
 }
-
 .admidio-icon-link {
     margin-left: 0;
     padding-left: 0;
@@ -227,6 +219,7 @@ label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
     background-color: #263340;
 }
 
+
 /* show vertical btn group in mobile view */
 @media (max-width: 500px)
 {
@@ -241,6 +234,7 @@ label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
     }
 }
 
+
 /***********************************/
 /* Mark mandatory fields */
 /***********************************/
@@ -249,7 +243,7 @@ label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
 .admidio-form-required-notice span:after {
     font-family: "Font Awesome 5 Free", serif;
     font-size: 6pt;
-    content: "\f111";
+    content: "\f005";
     color: #d94a49;
     white-space: nowrap;
     vertical-align: super;
@@ -260,20 +254,14 @@ label img, .form-control-static img, .admidio-icon-link .fas, a .fas {
     font-size: 9pt;
     margin-top: 5px;
     margin-bottom: -10px;
-    text-align: right;
+    text-align: left;
     width: 100%;
     display: inline-block;
-    max-width: 1000px;
 }
 
 /***********************************/
 /* Forms */
 /***********************************/
-
-form, .message {
-    max-width: 1000px;
-}
-
 .form-control:focus, .select2-container--bootstrap4.select2-container--focus .select2-selection,
 input[type=checkbox]:focus, button:focus {
     border-color: #263340;
@@ -345,17 +333,18 @@ input[type=time] {
 /***********************************/
 
 .admidio-blog, .admidio-field-group {
-    border: none;
-    max-width: 1000px;
+    border: 1px solid grey;
+
 }
 
 .admidio-blog .card-header, .admidio-blog .card-body, .admidio-blog .card-footer,
 .admidio-field-group .card-header, .admidio-field-group .card-body, .admidio-field-group .card-footer {
-    border: solid 1px #999999;
+    border: solid 1px white;
     background-color: #eeeeee;
+    width: 100%;
 }
 .card-body {
-    border: solid 1px #999999;
+    border: solid 1px #6495b0;
 }
 
 .card-header {
@@ -431,6 +420,7 @@ input[type=time] {
     background-color: #eeeeee;
 }
 
+
 /***********************************/
 /* Nav-Bars */
 /***********************************/
@@ -473,8 +463,11 @@ input[type=time] {
     opacity: 0.4;
 }
 .profile {
-    padding-left: 5px;
-    font-family: inherit !important;
+    padding: 3px 15px;
+    margin-left: 5px;
+    margin-right: 5px;
+    border: solid 1px grey;
+    border-radius: 5px;
 }
 
 .badge {
@@ -514,7 +507,6 @@ input[type=time] {
 
 #imprint {
     margin-bottom: 30px;
-    font-size: 80%;
 }
 
 .admidio-info-icon {
@@ -569,6 +561,7 @@ input[type=time] {
     height: 20px !important;
 }
 
+
 /***********************************/
 /* Overview page */
 /***********************************/
@@ -578,9 +571,9 @@ input[type=time] {
 }
 
 #plgCalendarTable td.plgCalendarToday {
-    background-color: #324b64;
+    border: solid 2px #324b64;
     border-radius: 5px;
-    color: white;
+    color: #324b64;
 }
 
 #plgCalendarTable td {
@@ -602,4 +595,13 @@ input[type=time] {
     color: white;
     text-align: center;
     z-index: 1000;
+}
+.imprint-footer {
+    color: #ffffff;
+}
+.imprint-footer:hover {
+    color: #df2424;
+}
+.btn-secondary:hover{
+    background-color: #6495b0;
 }

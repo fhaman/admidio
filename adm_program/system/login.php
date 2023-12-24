@@ -70,9 +70,9 @@ $page->addHtml($form->show());
 if ($gSettingsManager->getBool('registration_enable_module')) {
     $page->addHtml('
         <div id="login_registration_link">
-            <small>
+            <span>
                 <a href="'.ADMIDIO_URL.FOLDER_MODULES.'/registration/registration.php">'.$gL10n->get('SYS_WANT_REGISTER').'</a>
-            </small>
+            </span>
         </div>');
 }
 
@@ -90,7 +90,7 @@ if ($gSettingsManager->getBool('enable_password_recovery') && $gSettingsManager-
 
 $page->addHtml('
     <div id="login_forgot_password_link" class="admidio-margin-bottom">
-        <small><a href="'.$forgotPasswordLink.'">'.$gL10n->get('SYS_FORGOT_MY_PASSWORD').'</a></small>
+        <span><a href="'.$forgotPasswordLink.'">'.$gL10n->get('SYS_FORGOT_MY_PASSWORD').'</a></span>
     </div>');
 
 $page->show();
