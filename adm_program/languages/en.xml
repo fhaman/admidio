@@ -1502,4 +1502,20 @@
   <string name="SYS_CONTACT_CITY_2_DESC">City of second contact person</string>
   <string name="SYS_CONTACT_COUNTRY_2">Country</string>
   <string name="SYS_CONTACT_COUNTRY_2_DESC">Country of second contact person</string>
+
+  <!-- 3trd Contact person -->
+  <string name="SYS_CONTACT_LAST_NAME_3">Last name</string>
+  <string name="SYS_CONTACT_LAST_NAME_3_DESC">Last name of third contact person</string>
+  <string name="SYS_CONTACT_FIRST_NAME_3">First name</string>
+  <string name="SYS_CONTACT_FIRST_NAME_3_DESC">First name of third contact person</string>
+  <string name="SYS_CONTACT_PHONE_3">Phone</string>
+  <string name="SYS_CONTACT_PHONE_3_DESC">Phone of third contact person</string>
+  <string name="SYS_CONTACT_EMAIL_3">Email</string>
+  <string name="SYS_CONTACT_EMAIL_3_DESC">Email of third contact person</string>
+  <string name="SYS_CONTACT_STREET_3">Street and number</string>
+  <string name="SYS_CONTACT_STREET_3_DESC">Street of third contact person</string>
+  <string name="SYS_CONTACT_CITY_3">First name third Contact person</string>
+  <string name="SYS_CONTACT_CITY_3_DESC">City of third contact person</string>
+  <string name="SYS_CONTACT_COUNTRY_3">Country</string>
+  <string name="SYS_CONTACT_COUNTRY_3_DESC">Country of third contact person</string>
 </resources>
