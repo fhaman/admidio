@@ -67,12 +67,10 @@
 
     <nav class="navbar fixed-top navbar-light navbar-expand flex-column flex-md-row bd-navbar" id="admidio-main-navbar">
         <a class="navbar-brand" href="{$urlAdmidio}/adm_program/overview.php">
-            <img class="d-none d-md-block align-top" src="{$urlTheme}/images/admidio_logo.png"
+            <img class="d-md-block align-top" src="{$urlTheme}/images/logo-kn.png"
                  alt="{$l10n->get('SYS_ADMIDIO_SHORT_DESC')}" title="{$l10n->get('SYS_ADMIDIO_SHORT_DESC')}">
         </a>
-        <span id="headline-organization" class="d-block d-lg-none">{$organizationName}</span>
         <span id="headline-membership" class="d-none d-lg-block">{$organizationName}</span>
-
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
